@@ -99,17 +99,26 @@ export class OgStorageClient implements OgStorage {
     //   -> [ { txHash, rootHash, txSeq } | { txHashes, rootHashes, txSeqs }, Error|null ]
     // The signer type is bound to the SDK's bundled ethers; our Wallet is the
     // app's ethers. Runtime is identical — cast at the boundary.
-    const [, uploadErr] = await this.indexer.upload(
-      mem,
-      OG.rpc,
-      this.signer as unknown as Parameters<typeof this.indexer.upload>[2],
-      UPLOAD_OPTS as unknown as Parameters<typeof this.indexer.upload>[3],
-    );
-    if (uploadErr !== null) {
-      throw uploadErr;
+    //
+    // The indexer pool can hand back a node from the WRONG network (e.g. a mainnet
+    // node from the testnet-turbo pool), and `flow.market()` then reverts on the
+    // configured RPC (BAD_DATA). Node selection is re-rolled per attempt, so a
+    // bounded retry almost always lands on a matching node. skipIfFinalized makes
+    // re-tries idempotent if an earlier attempt already seeded the blob.
+    const ATTEMPTS = 5;
+    let lastErr: Error | null = null;
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      const [, uploadErr] = await this.indexer.upload(
+        mem,
+        OG.rpc,
+        this.signer as unknown as Parameters<typeof this.indexer.upload>[2],
+        UPLOAD_OPTS as unknown as Parameters<typeof this.indexer.upload>[3],
+      );
+      if (uploadErr === null) return rootHash;
+      lastErr = uploadErr;
+      if (attempt < ATTEMPTS) await new Promise((r) => setTimeout(r, 700 * attempt));
     }
-
-    return rootHash;
+    throw lastErr ?? new Error("putBlob: upload failed after retries");
   }
 
   /**

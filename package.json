@@ -7,10 +7,11 @@
     "arca": "src/cli/index.ts"
   },
   "scripts": {
-    "mcp": "tsx src/mcp/server.ts",
-    "serve": "tsx src/transport/http-server.ts",
-    "cli": "tsx src/cli/index.ts",
-    "typecheck": "tsc --noEmit"
+    "mcp": "bun src/mcp/server.ts",
+    "serve": "bun src/transport/http-server.ts",
+    "serve:testnet": "bun --env-file=.env.testnet src/transport/http-server.ts",
+    "cli": "bun src/cli/index.ts",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",
