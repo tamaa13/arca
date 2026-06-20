@@ -46,6 +46,14 @@ const TESTNET_ENV: Record<string, string> = {
   INGAT_REGISTRY_ADDR: "0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD",
 };
 
+/** Explicit mainnet env (matches the OG config defaults — used for project wiring). */
+const MAINNET_ENV: Record<string, string> = {
+  INGAT_RPC: "https://evmrpc.0g.ai",
+  INGAT_INDEXER: "https://indexer-storage-turbo.0g.ai",
+  INGAT_CHAIN_ID: "16661",
+  INGAT_REGISTRY_ADDR: "0x746Cb7B6eC8521262b01E2788188fC475f95216e",
+};
+
 /** ~/.ingat — single home for key + index (mirrors src/memory/key.ts). */
 const INGAT_DIR = path.join(os.homedir(), ".ingat");
 const KEY_PATH = path.join(INGAT_DIR, "key");
@@ -149,11 +157,58 @@ function wireOpenCode(env: Record<string, string>): boolean {
   return true;
 }
 
+/**
+ * Drop project-scoped ingat config into the CURRENT directory: .mcp.json (Claude
+ * Code) + opencode.json (OpenCode), plus a memory-override CLAUDE.md / AGENTS.md
+ * if absent. Launch the agent in this folder and ingat loads — no global wiring.
+ */
+function wireHere(env: Record<string, string>): void {
+  const cwd = process.cwd();
+
+  const mcpJson = {
+    mcpServers: { ingat: { command: TSX_BIN, args: [MCP_SERVER_PATH], env } },
+  };
+  fs.writeFileSync(path.join(cwd, ".mcp.json"), `${JSON.stringify(mcpJson, null, 2)}\n`);
+
+  const ocJson = {
+    $schema: "https://opencode.ai/config.json",
+    mcp: {
+      ingat: {
+        type: "local",
+        command: [TSX_BIN, MCP_SERVER_PATH],
+        environment: env,
+        enabled: true,
+      },
+    },
+  };
+  fs.writeFileSync(path.join(cwd, "opencode.json"), `${JSON.stringify(ocJson, null, 2)}\n`);
+
+  // Memory-override so agents prefer ingat over any built-in memory. Never clobber
+  // an existing file (a real project may already have CLAUDE.md / AGENTS.md).
+  const override =
+    "# Memory here = the ingat MCP\n\n" +
+    "Use the `ingat` MCP tools (`save_memory` / `recall_memory`) for ALL memory\n" +
+    "operations in this folder. Do not use any other memory system, file, or directory.\n";
+  for (const f of ["CLAUDE.md", "AGENTS.md"]) {
+    const p = path.join(cwd, f);
+    if (!fs.existsSync(p)) fs.writeFileSync(p, override);
+  }
+
+  rule();
+  console.log("  ✓ ingat wired into this folder:");
+  console.log(`    ${cwd}`);
+  console.log("    • .mcp.json (Claude Code)  • opencode.json (OpenCode)");
+  console.log("    • CLAUDE.md / AGENTS.md memory-override (only if absent)");
+  console.log(`    network: ${env.INGAT_RPC?.includes("testnet") ? "TESTNET" : "mainnet"}`);
+  console.log("    → launch `claude` or `opencode` HERE; approve ingat.");
+  rule();
+}
+
 // ---------------------------------------------------------------------------
 // init command
 // ---------------------------------------------------------------------------
 
-function runInit(opts: { import?: string; testnet?: boolean }): void {
+function runInit(opts: { import?: string; testnet?: boolean; wire?: boolean }): void {
   const env = opts.testnet ? TESTNET_ENV : {};
 
   // 1. Key.
@@ -192,8 +247,16 @@ function runInit(opts: { import?: string; testnet?: boolean }): void {
   console.log("  ⚠️  BACK UP YOUR KEY (~/.ingat/key). If you lose it, your memory is");
   console.log("      GONE FOREVER — there is no recovery, by design.");
 
-  // 4. Wire the MCP server into the agents.
+  // 4. Wire the MCP server into the agents (unless --no-wire).
   rule();
+  if (opts.wire === false) {
+    console.log("  • Skipped agent wiring (--no-wire).");
+    console.log(
+      "    Use a project-scoped .mcp.json (Claude Code) / opencode.json (OpenCode) instead.",
+    );
+    rule();
+    return;
+  }
   console.log(
     `  Wiring Ingat MCP server into your agents (${opts.testnet ? "TESTNET" : "mainnet"})…`,
   );
@@ -240,8 +303,22 @@ program
     "--testnet",
     "Wire + target 0G Galileo testnet (healthy storage) instead of mainnet.",
   )
-  .action((opts: { import?: string; testnet?: boolean }) => {
+  .option(
+    "--no-wire",
+    "Generate key + show funding/backup, but skip wiring agents (use project-scoped configs).",
+  )
+  .action((opts: { import?: string; testnet?: boolean; wire?: boolean }) => {
     runInit(opts);
+  });
+
+program
+  .command("wire")
+  .description(
+    "Drop ingat config into the CURRENT folder (project-scoped), then launch claude/opencode here.",
+  )
+  .option("--testnet", "Target 0G Galileo testnet instead of mainnet.")
+  .action((opts: { testnet?: boolean }) => {
+    wireHere(opts.testnet ? TESTNET_ENV : MAINNET_ENV);
   });
 
 // ---------------------------------------------------------------------------
