@@ -71,6 +71,10 @@ export const OG = {
   rpc: process.env.INGAT_RPC ?? "https://evmrpc.0g.ai",
   indexer: process.env.INGAT_INDEXER ?? "https://indexer-storage-turbo.0g.ai",
   flowContract: "0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526",
-  /** IngatRegistry deployed address — filled in after deploy (env INGAT_REGISTRY_ADDR overrides). */
-  registry: process.env.INGAT_REGISTRY_ADDR ?? "",
+  /** IngatRegistry — defaults to the MAINNET deployment so a published install works
+   *  out of the box; env INGAT_REGISTRY_ADDR overrides (the --testnet flow points it
+   *  at the Galileo testnet registry). */
+  registry:
+    process.env.INGAT_REGISTRY_ADDR ??
+    "0x746Cb7B6eC8521262b01E2788188fC475f95216e",
 } as const;
