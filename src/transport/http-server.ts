@@ -31,6 +31,7 @@ import { OgStorageClient } from "../og/storage.js";
 import { RegistryClient } from "../registry/client.js";
 import { keyedCrypto } from "../wallet/sig-key.js";
 import { createSession, sessionForToken, type UserSession } from "../auth/sessions.js";
+import { generateBootstrapKeypair, decryptWithPrivkey, type HandoffEnvelope } from "../sandbox/handoff.js";
 import { OG, type MemoryStore } from "../types.js";
 
 const PORT = Number(process.env.ARCA_PORT ?? 8787);
@@ -62,6 +63,12 @@ function resolveStore(req: Request): MemoryStore | null {
 
 const DASHBOARD_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../dashboard");
 
+/** The enclave's bootstrap keypair. In a sealed 0G Sandbox container this privkey
+ *  never leaves the TEE; the dashboard ECIES-encrypts the user's signature to the
+ *  pubkey so the operator/relay never sees it (Option-3 handoff). Regenerated per
+ *  process — fine while sessions are in-memory. */
+const BOOTSTRAP = generateBootstrapKeypair();
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -73,18 +80,45 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, name: "arca", transport: "streamable-http", registry: OG.registry, chainId: OG.chainId });
 });
 
-// Login — the dashboard posts {wallet, signature}; we issue a connector token.
+// Enclave bootstrap pubkey — the dashboard encrypts the signature to this (operator-blind).
+app.get("/bootstrap/pubkey", (_req, res) => {
+  res.json({ pubkey: BOOTSTRAP.pubkeyHexCompressed, scheme: "arca-sandbox-handoff-v1" });
+});
+
+// Login — the dashboard posts {wallet, signature} OR {wallet, envelope}. The envelope
+// is the signature ECIES-encrypted to /bootstrap/pubkey; it is decrypted in-process
+// (in-enclave when running sealed), so a relay/operator never sees the signature.
 app.post("/session", async (req, res) => {
   try {
-    const { wallet, signature } = (req.body ?? {}) as { wallet?: string; signature?: string };
-    if (!wallet || !signature) {
-      res.status(400).json({ error: "wallet and signature are required" });
+    const { wallet, signature, envelope } = (req.body ?? {}) as {
+      wallet?: string;
+      signature?: string;
+      envelope?: HandoffEnvelope;
+    };
+    if (!wallet) {
+      res.status(400).json({ error: "wallet is required" });
       return;
     }
-    const s = await createSession(wallet, signature);
+    let sig = signature;
+    if (!sig && envelope) {
+      try {
+        sig = new TextDecoder().decode(decryptWithPrivkey(BOOTSTRAP.privkeyHex, envelope));
+      } catch {
+        res.status(400).json({ error: "envelope decrypt failed" });
+        return;
+      }
+    }
+    if (!sig) {
+      res.status(400).json({ error: "signature or envelope is required" });
+      return;
+    }
+    const s = await createSession(wallet, sig);
+    // Prefer the request's own host (the 0G Sandbox nip.io endpoint when deployed)
+    // so the connector URL is correct wherever the container runs; ARCA_PUBLIC_URL overrides.
+    const base = process.env.ARCA_PUBLIC_URL || `${req.protocol}://${req.headers.host}` || PUBLIC_URL;
     res.json({
       token: s.token,
-      connectorUrl: `${PUBLIC_URL}${MCP_PATH}`,
+      connectorUrl: `${base}${MCP_PATH}`,
       signerAddress: s.signerAddress, // fund this (deposit) + setDelegate it on the registry
       registry: OG.registry,
       chainId: OG.chainId,

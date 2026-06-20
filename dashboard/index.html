@@ -119,7 +119,29 @@
 </div>
 
 <script type="module">
-import { BrowserProvider, Contract, parseEther } from "https://esm.sh/ethers@6.13.4";
+import { BrowserProvider, Contract, parseEther, SigningKey, Wallet, getBytes, hexlify } from "https://esm.sh/ethers@6.13.4";
+
+// Option-3 ECIES — encrypt the signature to the enclave bootstrap pubkey, browser-side
+// (Web Crypto). Matches src/sandbox/handoff.ts (node) so a sealed container decrypts it.
+async function encryptToPubkey(recipientPubkey, plaintext) {
+  const eph = Wallet.createRandom();
+  const ephPub = SigningKey.computePublicKey(eph.privateKey, true);
+  const x = getBytes(new SigningKey(eph.privateKey).computeSharedSecret(recipientPubkey)).slice(1, 33);
+  const base = await crypto.subtle.importKey("raw", x, "HKDF", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: getBytes(ephPub), info: new TextEncoder().encode("arca-sandbox-handoff-v1") },
+    base, 256,
+  );
+  const key = await crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ctTag = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext));
+  return {
+    ephPubkeyHex: ephPub,
+    ivHex: hexlify(iv),
+    tagHex: hexlify(ctTag.slice(ctTag.length - 16)),
+    ciphertextHex: hexlify(ctTag.slice(0, ctTag.length - 16)),
+  };
+}
 
 const GALILEO = {
   chainIdHex: "0x40DA", // 16602
@@ -174,9 +196,19 @@ $("btnSign").onclick = async () => {
     set("st2", "sign the message in your wallet…");
     const signature = await signer.signTypedData(DOMAIN, TYPES, MESSAGE);
     set("st2", "creating session…");
+    // Operator-blind: if the server (sealed enclave) exposes a bootstrap pubkey,
+    // encrypt the signature to it so the relay never sees it. Else send plaintext.
+    let body = { wallet: account, signature };
+    try {
+      const bp = await fetch("/bootstrap/pubkey");
+      if (bp.ok) {
+        const { pubkey } = await bp.json();
+        if (pubkey) body = { wallet: account, envelope: await encryptToPubkey(pubkey, new TextEncoder().encode(signature)) };
+      }
+    } catch {}
     const res = await fetch("/session", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ wallet: account, signature }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "session failed");
