@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title  IngatRegistry
+/// @title  ArcaRegistry
 /// @notice Minimal, permissionless on-chain index of 0G Storage root hashes.
-///         Ingat stores each encrypted memory blob on 0G Storage; every blob
+///         Arca stores each encrypted memory blob on 0G Storage; every blob
 ///         has a 32-byte root hash. This contract anchors those root hashes on
 ///         0G Chain (Aristotle, chainId 16661) keyed by the caller's address,
 ///         so a user can recover their full memory list from their key alone on
@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
 /// @dev    No owner, no admin. Every account anchors only its own roots under
 ///         msg.sender. Append-only by construction (no removal), mirroring
 ///         0G Storage's pay-once + append-only guarantees.
-contract IngatRegistry {
+contract ArcaRegistry {
     /// @notice All root hashes anchored by a given user, in insertion order.
     mapping(address => bytes32[]) private _roots;
 

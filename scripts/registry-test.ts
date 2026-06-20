@@ -1,4 +1,4 @@
-/** Prove the 0G CHAIN half (IngatRegistry) works independently of storage-node lag. */
+/** Prove the 0G CHAIN half (ArcaRegistry) works independently of storage-node lag. */
 import { FileKeyManager } from "../src/memory/key.js";
 import { RegistryClient } from "../src/registry/client.js";
 

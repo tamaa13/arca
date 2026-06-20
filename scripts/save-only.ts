@@ -3,13 +3,13 @@
 import { FileKeyManager } from "../src/memory/key.js";
 import { OgStorageClient } from "../src/og/storage.js";
 import { ogCrypto } from "../src/og/crypto.js";
-import { IngatMemoryStore } from "../src/memory/store.js";
+import { ArcaMemoryStore } from "../src/memory/store.js";
 import { RegistryClient } from "../src/registry/client.js";
 import { OG } from "../src/types.js";
 
 const { privKeyHex } = new FileKeyManager().loadOrCreate();
 const registry = OG.registry ? new RegistryClient(privKeyHex) : undefined;
-const store = new IngatMemoryStore(
+const store = new ArcaMemoryStore(
   new OgStorageClient(privKeyHex),
   ogCrypto,
   privKeyHex,

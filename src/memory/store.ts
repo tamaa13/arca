@@ -4,7 +4,7 @@
  *   save  : record -> encrypt(JSON) -> 0G putBlob -> append local index
  *   recall: read index -> 0G getBlob -> decrypt -> parse -> filter
  *
- * The local index (~/.ingat/index.json) holds ONLY {id, createdAt, rootHash}.
+ * The local index (~/.arca/index.json) holds ONLY {id, createdAt, rootHash}.
  * Plaintext lives ONLY on 0G, encrypted to the user's key — recall genuinely
  * round-trips through 0G. Un-ruggable once anchored.
  *
@@ -17,8 +17,8 @@ import path from "node:path";
 import { Wallet } from "ethers";
 import type { Crypto, MemoryRecord, MemoryRegistry, MemoryStore, OgStorage } from "../types.js";
 
-const INGAT_DIR = path.join(os.homedir(), ".ingat");
-const INDEX_PATH = path.join(INGAT_DIR, "index.json");
+const ARCA_DIR = path.join(os.homedir(), ".arca");
+const INDEX_PATH = path.join(ARCA_DIR, "index.json");
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -48,7 +48,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   });
 }
 
-/** One line in ~/.ingat/index.json — the pointer, never the plaintext. */
+/** One line in ~/.arca/index.json — the pointer, never the plaintext. */
 interface IndexEntry {
   id: string;
   createdAt: number; // epoch ms
@@ -56,7 +56,7 @@ interface IndexEntry {
   pending?: boolean; // blob upload not finalized yet (anchored on-chain, storage lagging)
 }
 
-export class IngatMemoryStore implements MemoryStore {
+export class ArcaMemoryStore implements MemoryStore {
   /** Caller's 0G address, derived from the key — used for on-chain root recovery. */
   private readonly address: string;
 
@@ -184,7 +184,7 @@ export class IngatMemoryStore implements MemoryStore {
   }
 
   private appendIndex(entry: IndexEntry): void {
-    fs.mkdirSync(INGAT_DIR, { recursive: true });
+    fs.mkdirSync(ARCA_DIR, { recursive: true });
     const index = this.readIndex();
     index.push(entry);
     fs.writeFileSync(INDEX_PATH, JSON.stringify(index, null, 2), "utf8");

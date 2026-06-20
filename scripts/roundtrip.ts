@@ -1,5 +1,5 @@
 /**
- * Real mainnet roundtrip test for the Ingat hero loop.
+ * Real mainnet roundtrip test for the Arca hero loop.
  *   (no flag) — load/create the key, print address + balance + registry.
  *   --run    — full loop: save -> 0G + on-chain anchor -> recall -> verify.
  */
@@ -7,7 +7,7 @@ import { ethers } from "ethers";
 import { FileKeyManager } from "../src/memory/key.js";
 import { OgStorageClient } from "../src/og/storage.js";
 import { ogCrypto } from "../src/og/crypto.js";
-import { IngatMemoryStore } from "../src/memory/store.js";
+import { ArcaMemoryStore } from "../src/memory/store.js";
 import { RegistryClient } from "../src/registry/client.js";
 import { OG } from "../src/types.js";
 
@@ -15,9 +15,9 @@ const { privKeyHex, address } = new FileKeyManager().loadOrCreate();
 const provider = new ethers.JsonRpcProvider(OG.rpc);
 const bal = await provider.getBalance(address);
 
-console.log("INGAT_ADDRESS:", address);
+console.log("ARCA_ADDRESS:", address);
 console.log("balance     :", ethers.formatEther(bal), "OG");
-console.log("registry    :", OG.registry || "(INGAT_REGISTRY_ADDR not set)");
+console.log("registry    :", OG.registry || "(ARCA_REGISTRY_ADDR not set)");
 
 if (process.argv.includes("--run")) {
   if (bal === 0n) {
@@ -25,7 +25,7 @@ if (process.argv.includes("--run")) {
     process.exit(1);
   }
   const registry = OG.registry ? new RegistryClient(privKeyHex) : undefined;
-  const store = new IngatMemoryStore(new OgStorageClient(privKeyHex), ogCrypto, privKeyHex, registry);
+  const store = new ArcaMemoryStore(new OgStorageClient(privKeyHex), ogCrypto, privKeyHex, registry);
 
   const fact = "Tama prefers Hono + Drizzle + Neon Postgres, functional style, Lucia auth, handle 'dev'.";
   console.log("\n=== SAVE (encrypt -> 0G Storage -> anchor on 0G Chain) ===");

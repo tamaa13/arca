@@ -36,7 +36,7 @@ export interface Crypto {
 
 /** Local key management — implemented in src/memory/key.ts */
 export interface KeyManager {
-  /** Load existing key from ~/.ingat/key, or generate a fresh secp256k1 key. */
+  /** Load existing key from ~/.arca/key, or generate a fresh secp256k1 key. */
   loadOrCreate(): { privKeyHex: string; address: string };
   /** Return the private key hex for the user to back up. */
   exportKey(): string;
@@ -50,7 +50,7 @@ export interface MemoryStore {
   recall(query?: string): Promise<MemoryRecord[]>;
 }
 
-/** On-chain memory registry — contract in contracts/IngatRegistry.sol, TS client in src/registry/client.ts.
+/** On-chain memory registry — contract in contracts/ArcaRegistry.sol, TS client in src/registry/client.ts.
  *  Anchors each memory's 0G root hash on 0G CHAIN per user, so the memory list is recoverable
  *  from the key alone (any machine) — the index itself becomes un-ruggable. */
 export interface MemoryRegistry {
@@ -62,19 +62,19 @@ export interface MemoryRegistry {
 
 /** 0G config — defaults to mainnet (Aristotle 16661); env overrides allow a
  *  testnet (Galileo 16602) run without code changes:
- *    INGAT_RPC=https://evmrpc-testnet.0g.ai
- *    INGAT_INDEXER=https://indexer-storage-testnet-turbo.0g.ai
- *    INGAT_CHAIN_ID=16602
+ *    ARCA_RPC=https://evmrpc-testnet.0g.ai
+ *    ARCA_INDEXER=https://indexer-storage-testnet-turbo.0g.ai
+ *    ARCA_CHAIN_ID=16602
  *  (Flow contract is resolved per-network by the indexer/nodes, so no override needed.) */
 export const OG = {
-  chainId: Number(process.env.INGAT_CHAIN_ID ?? 16661),
-  rpc: process.env.INGAT_RPC ?? "https://evmrpc.0g.ai",
-  indexer: process.env.INGAT_INDEXER ?? "https://indexer-storage-turbo.0g.ai",
+  chainId: Number(process.env.ARCA_CHAIN_ID ?? 16661),
+  rpc: process.env.ARCA_RPC ?? "https://evmrpc.0g.ai",
+  indexer: process.env.ARCA_INDEXER ?? "https://indexer-storage-turbo.0g.ai",
   flowContract: "0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526",
-  /** IngatRegistry — defaults to the MAINNET deployment so a published install works
-   *  out of the box; env INGAT_REGISTRY_ADDR overrides (the --testnet flow points it
+  /** ArcaRegistry — defaults to the MAINNET deployment so a published install works
+   *  out of the box; env ARCA_REGISTRY_ADDR overrides (the --testnet flow points it
    *  at the Galileo testnet registry). */
   registry:
-    process.env.INGAT_REGISTRY_ADDR ??
+    process.env.ARCA_REGISTRY_ADDR ??
     "0x746Cb7B6eC8521262b01E2788188fC475f95216e",
 } as const;

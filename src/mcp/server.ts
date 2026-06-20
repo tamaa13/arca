@@ -1,11 +1,11 @@
 /**
- * Ingat MCP server — the bridge agents (Claude Code, Codex) connect to.
+ * Arca MCP server — the bridge agents (Claude Code, Codex) connect to.
  *
  * Transport: stdio. The host spawns this file as a subprocess and talks MCP
  * over stdin/stdout, so STDOUT IS THE PROTOCOL CHANNEL — every log MUST go to
  * stderr (console.error), never console.log.
  *
- * Two tools, both backed by the shared IngatMemoryStore (encrypt -> 0G -> index):
+ * Two tools, both backed by the shared ArcaMemoryStore (encrypt -> 0G -> index):
  *   - save_memory({ text })      -> store.save(text)   -> confirmation w/ id + rootHash
  *   - recall_memory({ query? })  -> store.recall(query) -> matching texts (newest first)
  *
@@ -27,7 +27,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import { FileKeyManager } from "../memory/key.js";
-import { IngatMemoryStore } from "../memory/store.js";
+import { ArcaMemoryStore } from "../memory/store.js";
 import { OgStorageClient } from "../og/storage.js";
 import { ogCrypto } from "../og/crypto.js";
 import { RegistryClient } from "../registry/client.js";
@@ -36,10 +36,10 @@ import { OG } from "../types.js";
 // --- wire the store once at startup -----------------------------------------
 
 const { privKeyHex } = new FileKeyManager().loadOrCreate();
-// On-chain registry is optional — used only once IngatRegistry is deployed
-// (OG.registry / INGAT_REGISTRY_ADDR set). Until then the local index drives recall.
+// On-chain registry is optional — used only once ArcaRegistry is deployed
+// (OG.registry / ARCA_REGISTRY_ADDR set). Until then the local index drives recall.
 const registry = OG.registry ? new RegistryClient(privKeyHex) : undefined;
-const store = new IngatMemoryStore(
+const store = new ArcaMemoryStore(
   new OgStorageClient(privKeyHex),
   ogCrypto,
   privKeyHex,
@@ -64,7 +64,7 @@ function fail(text: string) {
 
 // --- server + tools ----------------------------------------------------------
 
-const server = new McpServer({ name: "ingat", version: "0.0.1" });
+const server = new McpServer({ name: "arca", version: "0.0.1" });
 
 server.registerTool(
   "save_memory",
@@ -130,10 +130,10 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stderr only — stdout is the MCP channel.
-  console.error("ingat MCP server running on stdio");
+  console.error("arca MCP server running on stdio");
 }
 
 main().catch((err) => {
-  console.error("Fatal error starting ingat MCP server:", err);
+  console.error("Fatal error starting arca MCP server:", err);
   process.exit(1);
 });

@@ -1,6 +1,6 @@
-# Ingat — Build Plan (Jun 23 hero loop)
+# Arca — Build Plan (Jun 23 hero loop)
 
-**Ingat** = user-owned, cross-agent persistent memory on 0G. Agents (Claude Code, Codex) save + recall via one MCP server; memory is ECIES-encrypted, stored on 0G Storage, the user holds the key. **Un-ruggable once anchored** (0G = pay-once + append-only, operator can't delete).
+**Arca** = user-owned, cross-agent persistent memory on 0G. Agents (Claude Code, Codex) save + recall via one MCP server; memory is ECIES-encrypted, stored on 0G Storage, the user holds the key. **Un-ruggable once anchored** (0G = pay-once + append-only, operator can't delete).
 
 ## HERO LOOP (the ONLY thing for Jun 23 — do NOT over-scope)
 > save a fact in **Claude Code** → recall it in **Codex** → it's on **0G** (encrypted) → **you hold the key**.
@@ -12,9 +12,9 @@ All modules implement interfaces in `src/types.ts`. Build against those. Don't c
 
 ## Modules / folders (each agent owns ONE folder tree)
 - `src/og/` — **0G Storage + crypto.** `storage.ts` (OgStorage: putBlob/getBlob on mainnet) + `crypto.ts` (Crypto: ECIES/AES encrypt/decrypt to user key). PORT from Yap: `/Users/tama/projects/yap/apps/web/lib/0g/storage.ts` + `encrypt.ts` (proven working on mainnet — reuse the patterns, don't reinvent).
-- `src/memory/` — **key + store.** `key.ts` (KeyManager: gen/load secp256k1 key at `~/.ingat/key`) + `store.ts` (MemoryStore: glue — save = encrypt→putBlob→append local index `~/.ingat/index.json`; recall = read index→getBlob→decrypt).
+- `src/memory/` — **key + store.** `key.ts` (KeyManager: gen/load secp256k1 key at `~/.arca/key`) + `store.ts` (MemoryStore: glue — save = encrypt→putBlob→append local index `~/.arca/index.json`; recall = read index→getBlob→decrypt).
 - `src/mcp/` — **MCP server.** `server.ts` using `@modelcontextprotocol/sdk` (stdio transport). Two tools: `save_memory(text)` and `recall_memory(query?)` → call MemoryStore. This is what Claude Code/Codex connect to.
-- `src/cli/` — **`ingat init`.** `index.ts` (commander): keygen (or `--import <key>`), print address + "fund ~2 0G" + "BACK UP YOUR KEY (lose it = memory gone forever)", then wire the MCP into Claude Code + Codex configs.
+- `src/cli/` — **`arca init`.** `index.ts` (commander): keygen (or `--import <key>`), print address + "fund ~2 0G" + "BACK UP YOUR KEY (lose it = memory gone forever)", then wire the MCP into Claude Code + Codex configs.
 
 ## Rules for agents (PM enforces)
 1. **ONLY create/edit files inside YOUR folder.** Do not touch root config (`package.json`, `tsconfig.json`), `src/types.ts`, or other agents' folders. Deps are already in `package.json` — assume available, do NOT run install. If you need a new dep, STOP and report it to PM.

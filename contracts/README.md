@@ -1,13 +1,13 @@
-# IngatRegistry — on-chain memory anchor (0G Chain, Aristotle 16661)
+# ArcaRegistry — on-chain memory anchor (0G Chain, Aristotle 16661)
 
 Minimal, permissionless registry that anchors **0G Storage root hashes** on
-**0G Chain** keyed by the caller's address. Each Ingat memory blob is encrypted
+**0G Chain** keyed by the caller's address. Each Arca memory blob is encrypted
 and stored on 0G Storage under a 32-byte root hash; anchoring those roots on
 chain makes a user's memory list **recoverable from their key alone** on any
-machine (the local `~/.ingat/index.json` becomes optional) and **un-ruggable**
+machine (the local `~/.arca/index.json` becomes optional) and **un-ruggable**
 once anchored. It also makes 0G Chain explicitly load-bearing — our own contract.
 
-## Contract API (`src/IngatRegistry.sol`, Solidity ^0.8.20, MIT)
+## Contract API (`src/ArcaRegistry.sol`, Solidity ^0.8.20, MIT)
 
 | Member | Signature | Notes |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ Compiles clean with Solc 0.8.24 (`Compiler run successful!`).
 
 ```sh
 cd contracts
-~/.foundry/bin/forge create src/IngatRegistry.sol:IngatRegistry \
+~/.foundry/bin/forge create src/ArcaRegistry.sol:ArcaRegistry \
   --rpc-url https://evmrpc.0g.ai \
   --private-key $KEY \
   --legacy --priority-gas-price 2000000000 \
@@ -65,11 +65,11 @@ PRIVATE_KEY=$KEY ~/.foundry/bin/forge script script/Deploy.s.sol:Deploy \
 ## After deploy
 
 Take the printed address and expose it to the TS client (`src/registry/client.ts`),
-which reads `OG.registry` (env `INGAT_REGISTRY_ADDR`) from `src/types.ts`:
+which reads `OG.registry` (env `ARCA_REGISTRY_ADDR`) from `src/types.ts`:
 
 ```sh
-export INGAT_REGISTRY_ADDR=0xYourDeployedRegistryAddress
+export ARCA_REGISTRY_ADDR=0xYourDeployedRegistryAddress
 ```
 
-If `INGAT_REGISTRY_ADDR` is unset, the client throws a clear
-"registry not deployed — set INGAT_REGISTRY_ADDR" error.
+If `ARCA_REGISTRY_ADDR` is unset, the client throws a clear
+"registry not deployed — set ARCA_REGISTRY_ADDR" error.

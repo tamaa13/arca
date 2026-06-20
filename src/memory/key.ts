@@ -1,7 +1,7 @@
 /**
  * Local key management — implements KeyManager (see ../types.ts).
  *
- * Persists a secp256k1 private key at ~/.ingat/key (hex, chmod 600).
+ * Persists a secp256k1 private key at ~/.arca/key (hex, chmod 600).
  * This key is the ROOT of trust: it encrypts memory AND pays/owns the 0G data.
  * Lose it = memory gone forever. Back it up via exportKey().
  */
@@ -11,18 +11,18 @@ import path from "node:path";
 import { Wallet } from "ethers";
 import type { KeyManager } from "../types.js";
 
-/** ~/.ingat — the single home for key + index. */
-const INGAT_DIR = path.join(os.homedir(), ".ingat");
-const KEY_PATH = path.join(INGAT_DIR, "key");
+/** ~/.arca — the single home for key + index. */
+const ARCA_DIR = path.join(os.homedir(), ".arca");
+const KEY_PATH = path.join(ARCA_DIR, "key");
 
 export class FileKeyManager implements KeyManager {
   /**
-   * Load the existing key from ~/.ingat/key, or generate a fresh
+   * Load the existing key from ~/.arca/key, or generate a fresh
    * random secp256k1 key (ethers Wallet.createRandom) and persist it.
    * Returns the private key hex (0x-prefixed) and its EVM address.
    */
   loadOrCreate(): { privKeyHex: string; address: string } {
-    fs.mkdirSync(INGAT_DIR, { recursive: true });
+    fs.mkdirSync(ARCA_DIR, { recursive: true });
 
     if (fs.existsSync(KEY_PATH)) {
       const privKeyHex = fs.readFileSync(KEY_PATH, "utf8").trim();
@@ -43,7 +43,7 @@ export class FileKeyManager implements KeyManager {
   exportKey(): string {
     if (!fs.existsSync(KEY_PATH)) {
       throw new Error(
-        "No key at ~/.ingat/key — run loadOrCreate() (or `ingat init`) first.",
+        "No key at ~/.arca/key — run loadOrCreate() (or `arca init`) first.",
       );
     }
     return fs.readFileSync(KEY_PATH, "utf8").trim();

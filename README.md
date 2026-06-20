@@ -1,12 +1,12 @@
-# Ingat
+# Arca
 
 **User-owned, cross-agent persistent memory on 0G.** Your AI agents (Claude Code, Codex, Cursor) save and recall memory through one local MCP server. Every memory is encrypted to *your* key and stored on 0G — append-only, pay-once, **un-ruggable**. Nobody, not even the operator, can delete it. You hold the key.
 
-> *ingat* — Indonesian for "remember".
+> *arca* — Latin for "ark / chest" — a vault you own for your memory.
 
 ## Why
 
-Today your memory is trapped inside each app and can be wiped by whoever runs it. Ingat flips that: the memory layer is **yours**, portable across agents, and economically permanent on 0G. No inference, no lock-in — just a memory you own.
+Today your memory is trapped inside each app and can be wiped by whoever runs it. Arca flips that: the memory layer is **yours**, portable across agents, and economically permanent on 0G. No inference, no lock-in — just a memory you own.
 
 ## How it works (the hero loop)
 
@@ -28,14 +28,14 @@ The plaintext **only** ever exists on 0G, encrypted. The local index holds point
 ## Two 0G primitives, both load-bearing
 
 - **0G Storage** — the encrypted memory blobs (pay-once + endowment → effectively permanent; ~0.13 0G/GB, one-time).
-- **0G Chain** — `IngatRegistry`, a tiny permissionless contract that anchors each memory's root per user, so the index itself is un-ruggable and portable.
+- **0G Chain** — `ArcaRegistry`, a tiny permissionless contract that anchors each memory's root per user, so the index itself is un-ruggable and portable.
 
 ## On-chain (deployed + verified)
 
 | | Network | Address |
 |---|---|---|
-| IngatRegistry | 0G Mainnet (Aristotle, 16661) | `0x746Cb7B6eC8521262b01E2788188fC475f95216e` |
-| IngatRegistry | 0G Galileo testnet (16602) | `0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD` |
+| ArcaRegistry | 0G Mainnet (Aristotle, 16661) | `0x746Cb7B6eC8521262b01E2788188fC475f95216e` |
+| ArcaRegistry | 0G Galileo testnet (16602) | `0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD` |
 
 Full hero loop proven end-to-end on testnet (encrypt → storage → anchor → recall → decrypt → match). On mainnet, encrypt + Flow-submit + registry anchor/recover are proven; storage read-back finalizes automatically once 0G storage sync catches up.
 
@@ -55,22 +55,22 @@ npx tsx src/cli/index.ts init        # generate/​import key, fund prompt, BACK
 
 Network is env-switchable (defaults to mainnet):
 ```
-INGAT_RPC=https://evmrpc-testnet.0g.ai \
-INGAT_INDEXER=https://indexer-storage-testnet-turbo.0g.ai \
-INGAT_CHAIN_ID=16602 \
-INGAT_REGISTRY_ADDR=0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD
+ARCA_RPC=https://evmrpc-testnet.0g.ai \
+ARCA_INDEXER=https://indexer-storage-testnet-turbo.0g.ai \
+ARCA_CHAIN_ID=16602 \
+ARCA_REGISTRY_ADDR=0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD
 ```
 
-⚠️ **Back up `~/.ingat/key`.** Lose it and your memory is gone forever — by design, there is no recovery.
+⚠️ **Back up `~/.arca/key`.** Lose it and your memory is gone forever — by design, there is no recovery.
 
 ## Layout
 
 ```
-contracts/      IngatRegistry.sol (Foundry)
+contracts/      ArcaRegistry.sol (Foundry)
 src/og/         0G Storage client + AES-256-GCM crypto
 src/memory/     key manager + memory store (the glue)
-src/registry/   IngatRegistry TS client
+src/registry/   ArcaRegistry TS client
 src/mcp/        MCP server (save_memory / recall_memory)
-src/cli/        `ingat init`
+src/cli/        `arca init`
 src/types.ts    shared contracts
 ```
