@@ -70,3 +70,20 @@ sharing · fancy billing UI. → Phase 3+.
 Multi-week, not a weekend. Parts need the user's real infra/accounts (TEE deploy, OAuth
 provider registration, hosting, funded deposit) — those are flagged, not claimed as done.
 Order: **1a → 1b → 1c** (hardest, TEE, last). Don't overclaim a stage until it's tested.
+
+## Progress
+- **1a — remote transport: DONE + tested.** Streamable HTTP MCP (`src/transport/http-server.ts`),
+  bearer auth, per-session transport, `/health`. Proven on testnet: MCP client → tools → save →
+  recall, all over remote HTTP.
+- **1b key model: DONE + tested.** `src/wallet/sig-key.ts` — HKDF-from-EIP-712-signature (anima
+  pattern), `keyedCrypto()` adapter. Unit-tested (deterministic / cross-device, isolated) AND
+  end-to-end through 0G testnet (encrypt with wallet key → 0G Storage + registry → recall → decrypt).
+- **Remaining 1b/1c — NOT built (needs a web app + the user's infra; deliberately not half-built):**
+  - per-user session state isolation (per-user index, or registry-only recall)
+  - deposit + per-user session-signer; **ArcaRegistry owner-mapping** (contract change so roots are
+    keyed by the wallet, not the gas signer) → unlocks cross-device-by-wallet recovery
+  - OAuth 2.1 (Claude/ChatGPT auth) wired to wallet sessions
+  - dashboard web app (SIWE connect · sign · deposit · connector URL) — design brief done
+  - 1c TEE: confidential-container deploy (Phala / conf-VM) + attestation
+  These are a cohesive chunk gated on the dashboard + real infra (OAuth provider, Phala account,
+  contract redeploy, funded deposit). Half-building them now = throwaway stopgaps → skipped on purpose.
