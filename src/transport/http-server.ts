@@ -20,6 +20,8 @@
  *      ARCA_REGISTRY_ADDR=0xc196… bun src/transport/http-server.ts
  */
 import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express, { type Request, type Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -58,8 +60,13 @@ function resolveStore(req: Request): MemoryStore | null {
   return null;
 }
 
+const DASHBOARD_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../dashboard");
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+
+// Dashboard (connect wallet · sign · deposit · setDelegate · connector) at `/`.
+app.use(express.static(DASHBOARD_DIR));
 
 // Liveness — unauthenticated.
 app.get("/health", (_req, res) => {
