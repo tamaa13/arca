@@ -1,0 +1,26 @@
+{
+  "name": "ingat",
+  "version": "0.0.1",
+  "description": "Ingat — user-owned, cross-agent persistent memory on 0G. Save/recall via MCP; encrypted, you hold the key, un-ruggable once anchored.",
+  "type": "module",
+  "bin": {
+    "ingat": "src/cli/index.ts"
+  },
+  "scripts": {
+    "mcp": "tsx src/mcp/server.ts",
+    "cli": "tsx src/cli/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.0.0",
+    "ethers": "^6.13.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
