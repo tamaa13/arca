@@ -21,6 +21,10 @@ import { OG, type MemoryRegistry } from "../types.js";
 const ARCA_REGISTRY_ABI = [
   "function addRoot(bytes32 root) external",
   "function addRoots(bytes32[] calldata roots) external",
+  "function addRootFor(address owner, bytes32 root) external",
+  "function addRootsFor(address owner, bytes32[] calldata roots) external",
+  "function setDelegate(address delegate, bool authorized) external",
+  "function isDelegate(address owner, address delegate) external view returns (bool)",
   "function getRoots(address user) external view returns (bytes32[])",
   "function rootCount(address user) external view returns (uint256)",
 ] as const;
@@ -85,5 +89,26 @@ export class RegistryClient implements MemoryRegistry {
   async getRoots(user: string): Promise<string[]> {
     const roots: string[] = await this.contract.getRoots(user);
     return roots.map((r) => r.toLowerCase());
+  }
+
+  /**
+   * Authorize (or revoke) a delegate to anchor roots under the caller — e.g. a
+   * funded session-signer, so the owner's wallet never signs/pays per save while
+   * roots stay keyed by the owner for cross-device recovery. Caller = owner.
+   */
+  async setDelegate(delegate: string, authorized = true): Promise<void> {
+    const tx = await this.contract.setDelegate(delegate, authorized);
+    await tx.wait(1);
+  }
+
+  /** Anchor a root UNDER `owner` (caller must be an authorized delegate). Waits 1 conf. */
+  async addRootFor(owner: string, rootHash: string): Promise<void> {
+    const tx = await this.contract.addRootFor(owner, toBytes32(rootHash));
+    await tx.wait(1);
+  }
+
+  /** Is `delegate` authorized to anchor under `owner`? (view) */
+  async isDelegate(owner: string, delegate: string): Promise<boolean> {
+    return this.contract.isDelegate(owner, delegate);
   }
 }
