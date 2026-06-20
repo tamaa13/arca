@@ -23,8 +23,8 @@ const INDEX_PATH = path.join(INGAT_DIR, "index.json");
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-/** Fail-fast windows so a 0G storage stall never hangs the agent. */
-const UPLOAD_TIMEOUT_MS = 60_000;
+/** Short windows so a 0G storage stall never blocks the agent. */
+const UPLOAD_CONFIRM_MS = 8_000; // save() waits this long to report "stored" vs "pending"; upload continues in bg
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 /** Reject after `ms` if `p` hasn't settled — WITHOUT canceling `p` (a slow upload
@@ -105,21 +105,35 @@ export class IngatMemoryStore implements MemoryStore {
       }
     }
 
-    // Upload the blob, but FAIL FAST — never hang the agent if 0G storage stalls.
-    // The upload promise keeps running in the background (it may finalize later);
-    // we just stop waiting. On timeout/error the record is `pending`.
-    const upload = this.storage.putBlob(ciphertext);
-    upload.catch(() => {}); // swallow a late rejection after we've timed out
-    let pending = false;
-    try {
-      await withTimeout(upload, UPLOAD_TIMEOUT_MS, "0G storage upload");
-    } catch {
-      pending = true;
-    }
-    record.pending = pending;
+    // Upload the blob in the BACKGROUND — never block the agent on a (possibly
+    // stalled) storage upload. Anchor + index are already done, so the memory is
+    // owned the moment save() returns. We wait only a short window to report
+    // "stored" vs "pending"; the upload keeps going and flips the index entry to
+    // finalized once the blob lands (self-heals when 0G storage recovers).
+    record.pending = true;
+    this.appendIndex({ id: record.id, createdAt: record.createdAt, rootHash, pending: true });
 
-    this.appendIndex({ id: record.id, createdAt: record.createdAt, rootHash, pending });
+    const upload = this.storage.putBlob(ciphertext);
+    upload.then(() => this.markFinalized(record.id)).catch(() => {
+      /* still pending; a later save/retry re-uploads */
+    });
+    try {
+      await withTimeout(upload, UPLOAD_CONFIRM_MS, "0G storage upload");
+      record.pending = false; // finalized fast (healthy network)
+    } catch {
+      /* slow/stalled — returns pending; background upload + markFinalized continue */
+    }
     return record;
+  }
+
+  /** Flip a saved entry from pending -> finalized once its blob lands on 0G. */
+  private markFinalized(id: string): void {
+    const index = this.readIndex();
+    const entry = index.find((e) => e.id === id);
+    if (entry?.pending) {
+      entry.pending = false;
+      fs.writeFileSync(INDEX_PATH, JSON.stringify(index, null, 2), "utf8");
+    }
   }
 
   /** Read index -> fetch from 0G -> decrypt -> parse. Optional substring filter. Newest-first. */
