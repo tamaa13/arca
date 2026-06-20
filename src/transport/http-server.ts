@@ -61,7 +61,9 @@ function resolveStore(req: Request): MemoryStore | null {
   return null;
 }
 
-const DASHBOARD_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../dashboard");
+const DASHBOARD_DIR =
+  process.env.ARCA_DASHBOARD_DIR ||
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "../../dashboard");
 
 /** The enclave's bootstrap keypair. In a sealed 0G Sandbox container this privkey
  *  never leaves the TEE; the dashboard ECIES-encrypts the user's signature to the

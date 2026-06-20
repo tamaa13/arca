@@ -39,7 +39,7 @@ const containerEnv: Record<string, string> = {
 };
 
 console.log("operator:", operator.address, "| image:", IMAGE);
-const funded = await settlement.ensureFunded("0.5");
+const funded = await settlement.ensureFunded("0.2");
 console.log("✓ funded — balance", funded.balance.toString(), "wei (ack/deposit idempotent)");
 
 // createSandbox with the custom image, SEALED. Retry while the provider sees the ack.
@@ -61,8 +61,9 @@ console.log(`✓ sealed container ${sb.id} (${sb.state}) → ${endpoint}`);
 
 // poll the inbound endpoint until the MCP is healthy (image pull + boot ~1-3 min).
 let healthy = false;
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 150; i++) {
   try { if ((await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(8000) })).ok) { healthy = true; break; } } catch {}
+  if (i % 6 === 0) console.log(`  …awaiting health (${i * 5}s — image pull + boot)`);
   await sleep(5000);
 }
 console.log(healthy ? "✓ MCP healthy" : "⚠ not healthy yet — check `bun -e` getSandbox / image pull logs");

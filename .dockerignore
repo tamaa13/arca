@@ -1,0 +1,8 @@
+node_modules
+.git
+arca-server
+contracts
+scripts
+design
+*.md
+.env*
