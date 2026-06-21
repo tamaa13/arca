@@ -68,7 +68,10 @@
     <p>Sign in with your own wallet (MetaMask / any injected wallet) on 0G Galileo testnet. Arca never sees your private key.</p>
     <div class="row"><button id="btnConnect">Connect wallet</button></div>
     <div class="status" id="st1"></div>
-    <div id="acct" style="display:none;margin-top:12px;"><div class="kv"><span>Wallet</span><code id="addr"></code></div></div>
+    <div id="acct" style="display:none;margin-top:12px;">
+      <div class="kv"><span>Wallet</span><code id="addr"></code></div>
+      <div class="row" style="margin-top:10px;"><button id="btnDisconnect">Disconnect</button></div>
+    </div>
   </section>
 
   <!-- 2. session -->
@@ -119,7 +122,7 @@
 </div>
 
 <script type="module">
-import { BrowserProvider, Contract, parseEther, SigningKey, Wallet, getBytes, hexlify } from "https://esm.sh/ethers@6.13.4";
+import { BrowserProvider, JsonRpcProvider, Contract, parseEther, formatEther, SigningKey, Wallet, getBytes, hexlify } from "https://esm.sh/ethers@6.13.4";
 
 // Option-3 ECIES — encrypt the signature to the enclave bootstrap pubkey, browser-side
 // (Web Crypto). Matches src/sandbox/handoff.ts (node) so a sealed container decrypts it.
@@ -165,6 +168,63 @@ const enable = (n) => { $("s" + n).classList.add("on"); };
 const markDone = (n) => { $("s" + n).classList.add("done"); };
 
 let provider, signer, account, session;
+const readProvider = new JsonRpcProvider(GALILEO.params.rpcUrls[0]);
+const LS_KEY = "arca_session_v1";
+
+function saveSession(extra = {}) {
+  if (!session) return;
+  const cur = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+  localStorage.setItem(LS_KEY, JSON.stringify({ ...cur, token: session.token, account, ...extra }));
+}
+
+// On-chain state is the source of truth + the SAME on every device (the signer is
+// deterministic from the wallet sig). Reflect deposit + authorize so the UI is consistent
+// wherever the user connects — already-authorized shows as done on a brand-new device too.
+async function checkChainState(d) {
+  const owner = d.wallet || account;
+  try {
+    const bal = await readProvider.getBalance(d.signerAddress);
+    if (bal > 0n) {
+      markDone(3); enable(4); $("btnDeposit").disabled = false; $("btnDelegate").disabled = false;
+      set("st3", `funded ✓ (${formatEther(bal)} 0G) — on-chain, any device`, "ok");
+    }
+  } catch {}
+  try {
+    const reg = new Contract(d.registry, ["function isDelegate(address,address) view returns (bool)"], readProvider);
+    if (await reg.isDelegate(owner, d.signerAddress)) {
+      markDone(4); enable(5);
+      set("st4", "already authorized ✓ — on-chain, works on any device", "ok");
+    }
+  } catch {}
+}
+
+// Same-device convenience: restore the cached session on load (no re-sign on refresh).
+async function restore() {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  if (!saved?.token) return;
+  let d;
+  try {
+    const r = await fetch("/session", { headers: { Authorization: "Bearer " + saved.token } });
+    if (!r.ok) { localStorage.removeItem(LS_KEY); return; }
+    d = await r.json();
+  } catch { return; }
+  session = d; account = saved.account || d.wallet;
+  $("addr").textContent = account; $("acct").style.display = "block";
+  $("tok").textContent = d.token; $("signer").textContent = d.signerAddress;
+  $("sess").style.display = "block"; $("regaddr").textContent = d.registry;
+  renderConnector(d);
+  markDone(1); markDone(2); enable(3); enable(5);
+  $("btnSign").disabled = false; $("btnDeposit").disabled = false;
+  set("st1", `connected as ${short(account)} ✓`, "ok");
+  set("st2", "session restored — no re-sign needed ✓", "ok");
+  await checkChainState(d);
+  if (window.ethereum) { // silent reconnect so a pending deposit/authorize still works
+    try {
+      const a = await window.ethereum.request({ method: "eth_accounts" });
+      if (a?.[0]?.toLowerCase() === account.toLowerCase()) { provider = new BrowserProvider(window.ethereum); signer = await provider.getSigner(); }
+    } catch {}
+  }
+}
 
 async function ensureGalileo() {
   try {
@@ -220,6 +280,8 @@ $("btnSign").onclick = async () => {
     renderConnector(data);
     set("st2", "session ready ✓", "ok");
     markDone(2); enable(3); $("btnDeposit").disabled = false;
+    saveSession();
+    await checkChainState(data); // reflect already-done deposit/authorize (any device)
   } catch (e) { set("st2", e.message || String(e), "err"); }
 };
 
@@ -272,6 +334,11 @@ $("copySnip").onclick = () => {
   navigator.clipboard?.writeText($("snippet").textContent);
   $("copySnip").textContent = "copied"; setTimeout(() => ($("copySnip").textContent = "copy"), 1200);
 };
+$("btnDisconnect").onclick = () => { localStorage.removeItem(LS_KEY); location.reload(); };
+
+// On load: restore a cached session (same-device, skip re-sign). Cross-device consistency
+// comes from checkChainState (on-chain truth) after the user signs on the new device.
+restore();
 </script>
 </body>
 </html>

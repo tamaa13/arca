@@ -131,6 +131,27 @@ app.post("/session", async (req, res) => {
   }
 });
 
+// Validate a bearer token — the dashboard calls this on load to restore a cached
+// session without re-signing (the session is re-derivable from the wallet sig anyway).
+app.get("/session", (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+  const s = token ? sessionForToken(token) : undefined;
+  if (!s) {
+    res.status(401).json({ error: "invalid or expired token" });
+    return;
+  }
+  const base = process.env.ARCA_PUBLIC_URL || `${req.protocol}://${req.headers.host}` || PUBLIC_URL;
+  res.json({
+    token: s.token,
+    wallet: s.wallet,
+    connectorUrl: `${base}${MCP_PATH}`,
+    signerAddress: s.signerAddress,
+    registry: OG.registry,
+    chainId: OG.chainId,
+  });
+});
+
 // One transport per MCP session, keyed by the Mcp-Session-Id header.
 const transports: Record<string, StreamableHTTPServerTransport> = {};
 
