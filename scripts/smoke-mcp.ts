@@ -1,0 +1,15 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+const token = process.argv[2];
+const marker = "Arca smoke test - saved via MCP from Claude";
+const url = new URL("https://arca.alpaca-parrotfish.ts.net/mcp");
+const transport = new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: `Bearer ${token}` } } });
+const client = new Client({ name: "arca-smoke", version: "1.0.0" });
+await client.connect(transport);
+const { tools } = await client.listTools();
+console.log("connected ✓ | tools:", tools.map((t: any) => t.name).join(", "));
+const saved: any = await client.callTool({ name: "save_memory", arguments: { text: marker } });
+console.log("\nsave_memory →", saved.content?.[0]?.text, saved.isError ? "(ERROR)" : "");
+const recalled: any = await client.callTool({ name: "recall_memory", arguments: { query: "smoke" } });
+console.log("\nrecall_memory(query='smoke') →\n" + (recalled.content?.[0]?.text ?? "(none)"));
+await client.close();

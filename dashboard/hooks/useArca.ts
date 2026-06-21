@@ -24,6 +24,7 @@ import {
   REGISTRY_SET_DELEGATE_ABI,
 } from "@/lib/constants";
 import { encryptToPubkey } from "@/lib/crypto";
+import { readOAuthParams, clientLabel, type OAuthParams } from "@/lib/oauth";
 import type { SessionData, StatusMessage, StatusKind } from "@/lib/types";
 
 const short = (a?: string) => (a ? a.slice(0, 8) + "…" + a.slice(-6) : "");
@@ -54,6 +55,11 @@ export interface ArcaState {
   st4: StatusMessage;
   // restore-in-progress (suppress UI flash)
   ready: boolean;
+  // OAuth mode (set when served at /authorize with client_id+redirect_uri+code_challenge):
+  // the sign step calls /authorize/approve and we redirect back to the web client.
+  oauth: OAuthParams | null;
+  oauthClient: string | null; // human label for the requesting client (host)
+  oauthRedirect: string | null; // the redirect_uri?code=…&state=… to send the user back with
 }
 
 export interface ArcaApi extends ArcaState {
@@ -77,6 +83,14 @@ export function useArca(): ArcaApi {
   const [account, setAccount] = useState<string | null>(null);
   const [session, setSession] = useState<SessionData | null>(null);
   const [ready, setReady] = useState(false);
+
+  // OAuth mode: read the params from the URL once on mount (null = normal dashboard).
+  const oauthRef = useRef<OAuthParams | null>(null);
+  if (oauthRef.current === null && typeof window !== "undefined") {
+    oauthRef.current = readOAuthParams();
+  }
+  const oauth = oauthRef.current;
+  const [oauthRedirect, setOauthRedirect] = useState<string | null>(null);
 
   const [step1Done, setStep1Done] = useState(false);
   const [step2Done, setStep2Done] = useState(false);
@@ -245,13 +259,19 @@ export function useArca(): ArcaApi {
     }
   }, [checkChainState, enable, markDone, setStatus]);
 
-  // On load: restore a cached session. Run once.
+  // On load: restore a cached session. Run once. In OAuth mode we DON'T silently restore
+  // (each connection must be freshly consented + a new code minted), but we still let the
+  // user connect+sign; mark ready so the UI shows.
   const restoredRef = useRef(false);
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
+    if (oauth) {
+      setReady(true);
+      return;
+    }
     void restore();
-  }, [restore]);
+  }, [oauth, restore]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {
@@ -275,6 +295,28 @@ export function useArca(): ArcaApi {
     }
   }, [ensureGalileo, enable, markDone, setStatus]);
 
+  // Build the auth body: {wallet, signature} OR, if the server (sealed enclave) exposes
+  // a bootstrap pubkey, {wallet, envelope} with the signature ECIES-encrypted to it so the
+  // relay never sees it. Identical for the /session and /authorize/approve flows.
+  const buildAuthBody = useCallback(async (signature: string): Promise<Record<string, unknown>> => {
+    let body: Record<string, unknown> = { wallet: accountRef.current, signature };
+    try {
+      const bp = await fetch("/bootstrap/pubkey");
+      if (bp.ok) {
+        const { pubkey } = (await bp.json()) as { pubkey?: string };
+        if (pubkey) {
+          body = {
+            wallet: accountRef.current,
+            envelope: await encryptToPubkey(pubkey, new TextEncoder().encode(signature)),
+          };
+        }
+      }
+    } catch {
+      /* ignore — fall back to plaintext */
+    }
+    return body;
+  }, []);
+
   const sign = useCallback(async () => {
     const signer = signerRef.current;
     if (!signer) {
@@ -284,30 +326,64 @@ export function useArca(): ArcaApi {
     try {
       setStatus("st2", "sign the message in your wallet…");
       const signature = await signer.signTypedData(DOMAIN, TYPES, MESSAGE);
-      setStatus("st2", "creating session…");
+      const authBody = await buildAuthBody(signature);
 
-      // Operator-blind: if the server (sealed enclave) exposes a bootstrap pubkey,
-      // encrypt the signature to it so the relay never sees it. Else send plaintext.
-      let body: Record<string, unknown> = { wallet: accountRef.current, signature };
-      try {
-        const bp = await fetch("/bootstrap/pubkey");
-        if (bp.ok) {
-          const { pubkey } = (await bp.json()) as { pubkey?: string };
-          if (pubkey) {
-            body = {
-              wallet: accountRef.current,
-              envelope: await encryptToPubkey(pubkey, new TextEncoder().encode(signature)),
-            };
-          }
-        }
-      } catch {
-        /* ignore — fall back to plaintext */
+      // OAuth mode: POST the SAME auth body + the OAuth params to /authorize/approve.
+      // We get back a redirect (redirect_uri?code=…&state=…) to send the user back with.
+      if (oauth) {
+        setStatus("st2", "approving connection…");
+        const res = await fetch("/authorize/approve", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin", // send the HttpOnly arca_authz cookie (anti session-fixation)
+          body: JSON.stringify({
+            ...authBody,
+            client_id: oauth.client_id,
+            redirect_uri: oauth.redirect_uri,
+            code_challenge: oauth.code_challenge,
+            code_challenge_method: oauth.code_challenge_method,
+            state: oauth.state,
+            resource: oauth.resource,
+            scope: oauth.scope,
+          }),
+        });
+        const data = (await res.json()) as {
+          redirect?: string;
+          signerAddress?: string;
+          registry?: string;
+          chainId?: number;
+          error?: string;
+          error_description?: string;
+        };
+        if (!res.ok || !data.redirect) throw new Error(data.error_description || data.error || "approve failed");
+
+        // Synthesize a SessionData so steps 3-4 (deposit/authorize) + checkChainState work.
+        const sd: SessionData = {
+          token: "", // not exposed to web clients — they use the OAuth code/token
+          wallet: accountRef.current ?? undefined,
+          connectorUrl: "",
+          signerAddress: data.signerAddress ?? "",
+          registry: data.registry ?? "",
+          chainId: data.chainId ?? 0,
+        };
+        sessionRef.current = sd;
+        setSession(sd);
+        setOauthRedirect(data.redirect);
+        setStatus("st2", "signed ✓ — approve to continue", "ok");
+        markDone(2);
+        enable(3);
+        enable(5);
+        setDepositEnabled(true);
+        if (data.signerAddress) await checkChainState(sd);
+        return;
       }
 
+      // Normal mode: create a session.
+      setStatus("st2", "creating session…");
       const res = await fetch("/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(authBody),
       });
       const data = (await res.json()) as SessionData & { error?: string };
       if (!res.ok) throw new Error(data.error || "session failed");
@@ -323,7 +399,7 @@ export function useArca(): ArcaApi {
     } catch (e: unknown) {
       setStatus("st2", (e as Error)?.message || String(e), "err");
     }
-  }, [checkChainState, enable, markDone, saveSession, setStatus]);
+  }, [buildAuthBody, checkChainState, enable, markDone, oauth, saveSession, setStatus]);
 
   const deposit = useCallback(
     async (amount: string) => {
@@ -396,6 +472,9 @@ export function useArca(): ArcaApi {
     st3,
     st4,
     ready,
+    oauth,
+    oauthClient: oauth ? clientLabel(oauth) : null,
+    oauthRedirect,
     connect,
     sign,
     deposit,

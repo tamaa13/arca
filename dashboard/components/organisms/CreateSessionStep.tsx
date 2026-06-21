@@ -23,8 +23,12 @@ export function CreateSessionStep({ arca }: { arca: ArcaApi }) {
       <StatusLine status={arca.st2} />
       {arca.session ? (
         <div style={{ marginTop: 12 }}>
-          <KeyValue label="Token" value={arca.session.token} />
-          <KeyValue label="Session signer" value={arca.session.signerAddress} />
+          {/* In OAuth mode the bearer token is never exposed to the web client (it uses the
+              OAuth code/access-token instead), so only show the token outside OAuth mode. */}
+          {arca.session.token ? <KeyValue label="Token" value={arca.session.token} /> : null}
+          {arca.session.signerAddress ? (
+            <KeyValue label="Session signer" value={arca.session.signerAddress} />
+          ) : null}
         </div>
       ) : null}
     </StepCard>

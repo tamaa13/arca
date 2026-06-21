@@ -1,0 +1,10 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+const token = process.argv[2];
+const url = new URL("https://arca.alpaca-parrotfish.ts.net/mcp");
+const transport = new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: `Bearer ${token}` } } });
+const client = new Client({ name: "arca-recall", version: "1.0.0" });
+await client.connect(transport);
+const r: any = await client.callTool({ name: "recall_memory", arguments: {} });
+console.log("recall_memory (all) →\n" + (r.content?.[0]?.text ?? "(none)"), r.isError ? "(ERROR)" : "");
+await client.close();

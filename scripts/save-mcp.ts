@@ -1,0 +1,10 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+const [,, token, text] = process.argv;
+const url = new URL("https://arca.alpaca-parrotfish.ts.net/mcp");
+const transport = new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: `Bearer ${token}` } } });
+const client = new Client({ name: "arca-save", version: "1.0.0" });
+await client.connect(transport);
+const r: any = await client.callTool({ name: "save_memory", arguments: { text } });
+console.log("save_memory →", r.content?.[0]?.text, r.isError ? "(ERROR)" : "");
+await client.close();
