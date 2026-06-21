@@ -1,4 +1,7 @@
 node_modules
+**/node_modules
+**/.next
+dashboard/out
 .git
 arca-server
 contracts

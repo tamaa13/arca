@@ -1,0 +1,25 @@
+{
+  "name": "arca-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Arca dashboard — connect wallet, sign, deposit, authorize, connect agents. Next.js 15 (App Router, static export).",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "next": "^15.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}
