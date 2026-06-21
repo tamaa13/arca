@@ -10,8 +10,9 @@ set -euo pipefail
 echo "== Arca · Oracle deploy =="
 
 # 1. deps: git, bun, cloudflared
-sudo apt-get update -y -qq
-sudo apt-get install -y -qq git curl unzip
+if command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y -qq && sudo apt-get install -y -qq git curl unzip
+elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y -q git curl unzip
+elif command -v yum >/dev/null 2>&1; then sudo yum install -y -q git curl unzip; fi
 if ! command -v bun >/dev/null 2>&1; then curl -fsSL https://bun.sh/install | bash; fi
 export PATH="$HOME/.bun/bin:$PATH"
 if ! command -v cloudflared >/dev/null 2>&1; then
