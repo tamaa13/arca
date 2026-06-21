@@ -18,7 +18,14 @@ RUN bun install --frozen-lockfile --production
 COPY src ./src
 # express.static serves this dir — it's the Next.js static export (index.html + _next/).
 COPY --from=dashboard /dash/out ./dashboard
+# /data is the persistent volume on the production deploy (arca-data). Baking the connector
+# store path here (not just in compose) means Watchtower's image-only redeploy picks it up
+# automatically — no compose re-apply / SSH needed for per-connector tokens to survive restarts.
+# mkdir so the dev variant (no volume) writes to a real dir instead of erroring; in production
+# the named volume mount shadows this dir.
+RUN mkdir -p /data
 ENV ARCA_PORT=8080
 ENV ARCA_DASHBOARD_DIR=/app/dashboard
+ENV ARCA_CONNECTORS_FILE=/data/connectors.json
 EXPOSE 8080
 CMD ["bun", "src/transport/http-server.ts"]

@@ -16,7 +16,7 @@ services:
       - ARCA_HOST=0.0.0.0
       - ARCA_PUBLIC_URL=https://arca.alpaca-parrotfish.ts.net   # public HTTPS (TLS at the Funnel) → correct connector URL
       - ARCA_CLIENTS_FILE=/data/oauth-clients.json              # persist DCR registrations across restarts (web connectors survive)
-      - ARCA_CONNECTORS_FILE=/data/connectors.json              # persist per-connector token rows + revoke flags across restarts
+      - ARCA_CONNECTORS_FILE=/data/connectors.json              # persist per-connector token rows + revoke flags (also baked into the image ENV → Watchtower applies it without a compose re-apply)
     volumes:
       - arca-data:/data
     expose:
