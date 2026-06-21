@@ -8,6 +8,7 @@ import { DepositStep } from "@/components/organisms/DepositStep";
 import { AuthorizeStep } from "@/components/organisms/AuthorizeStep";
 import { ConnectorStep } from "@/components/organisms/ConnectorStep";
 import { ApproveStep } from "@/components/organisms/ApproveStep";
+import { UsagePanel } from "@/components/organisms/UsagePanel";
 
 export function Dashboard() {
   const arca = useArca();
@@ -34,6 +35,8 @@ export function Dashboard() {
           </>
         )}
       </p>
+
+      {arca.session?.signerAddress && <UsagePanel arca={arca} />}
 
       <ConnectWalletStep arca={arca} />
       <CreateSessionStep arca={arca} />

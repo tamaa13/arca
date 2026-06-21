@@ -22,6 +22,8 @@ import {
   LS_KEY,
   REGISTRY_IS_DELEGATE_ABI,
   REGISTRY_SET_DELEGATE_ABI,
+  REGISTRY_ROOT_COUNT_ABI,
+  EXPLORER,
 } from "@/lib/constants";
 import { encryptToPubkey } from "@/lib/crypto";
 import { readOAuthParams, clientLabel, type OAuthParams } from "@/lib/oauth";
@@ -60,6 +62,11 @@ export interface ArcaState {
   oauth: OAuthParams | null;
   oauthClient: string | null; // human label for the requesting client (host)
   oauthRedirect: string | null; // the redirect_uri?code=…&state=… to send the user back with
+  // live storage tracker
+  balance: string | null; // signer's remaining 0G (formatted), auto-refreshed
+  saveCount: number | null; // memories anchored on-chain (rootCount)
+  lowBalance: boolean;
+  signerExplorerUrl: string | null;
 }
 
 export interface ArcaApi extends ArcaState {
@@ -111,6 +118,11 @@ export function useArca(): ArcaApi {
   const [st2, setSt2] = useState<StatusMessage>(blank);
   const [st3, setSt3] = useState<StatusMessage>(blank);
   const [st4, setSt4] = useState<StatusMessage>(blank);
+
+  // live storage tracker
+  const [balance, setBalance] = useState<string | null>(null);
+  const [saveCount, setSaveCount] = useState<number | null>(null);
+  const [lowBalance, setLowBalance] = useState(false);
 
   const setStatus = useCallback((key: StatusKey, text: string, kind: StatusKind = "") => {
     const msg = { text, kind };
@@ -194,6 +206,30 @@ export function useArca(): ArcaApi {
     },
     [enable, markDone, setStatus, getReadProvider],
   );
+
+  // Live usage tracker: the signer's remaining balance + the on-chain memory count.
+  const refreshUsage = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s?.signerAddress) return;
+    const read = getReadProvider();
+    const owner = s.wallet || accountRef.current || undefined;
+    try {
+      const bal = await read.getBalance(s.signerAddress);
+      setBalance(Number(formatEther(bal)).toFixed(4));
+      setLowBalance(bal > 0n && bal < parseEther("0.01"));
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (owner) {
+        const reg = new Contract(s.registry, REGISTRY_ROOT_COUNT_ABI, read);
+        const n = (await reg.rootCount(owner)) as bigint;
+        setSaveCount(Number(n));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [getReadProvider]);
 
   const ensureGalileo = useCallback(async () => {
     const eth = window.ethereum;
@@ -307,6 +343,20 @@ export function useArca(): ArcaApi {
     }
     void restore();
   }, [restore]);
+
+  // Auto-refresh the storage tracker while a session exists (every 30s + on tab focus),
+  // so "remaining" stays current without a reconnect — catches mid-session depletion.
+  useEffect(() => {
+    if (!session?.signerAddress) return;
+    void refreshUsage();
+    const id = setInterval(() => void refreshUsage(), 30_000);
+    const onFocus = () => void refreshUsage();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [session?.signerAddress, refreshUsage]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {
@@ -511,6 +561,10 @@ export function useArca(): ArcaApi {
     oauth,
     oauthClient: oauth ? clientLabel(oauth) : null,
     oauthRedirect,
+    balance,
+    saveCount,
+    lowBalance,
+    signerExplorerUrl: session?.signerAddress ? `${EXPLORER}/address/${session.signerAddress}` : null,
     connect,
     sign,
     deposit,

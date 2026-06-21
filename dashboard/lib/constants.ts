@@ -38,6 +38,12 @@ export const REGISTRY_IS_DELEGATE_ABI: string[] = [
 export const REGISTRY_SET_DELEGATE_ABI: string[] = [
   "function setDelegate(address delegate, bool authorized) external",
 ];
+export const REGISTRY_ROOT_COUNT_ABI: string[] = [
+  "function rootCount(address user) view returns (uint256)",
+];
+
+// Block explorer for the active network — signer activity / usage-history links.
+export const EXPLORER = GALILEO.params.blockExplorerUrls[0];
 
 export type Platform = "claude" | "cursor" | "opencode" | "codex" | "antigravity" | "web" | "other";
 export const PLATFORMS: Platform[] = ["claude", "cursor", "opencode", "codex", "antigravity", "web", "other"];
