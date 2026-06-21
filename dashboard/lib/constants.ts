@@ -39,5 +39,5 @@ export const REGISTRY_SET_DELEGATE_ABI: string[] = [
   "function setDelegate(address delegate, bool authorized) external",
 ];
 
-export type Platform = "claude" | "cursor" | "chatgpt" | "other";
-export const PLATFORMS: Platform[] = ["claude", "cursor", "chatgpt", "other"];
+export type Platform = "claude" | "cursor" | "opencode" | "codex" | "antigravity" | "web" | "other";
+export const PLATFORMS: Platform[] = ["claude", "cursor", "opencode", "codex", "antigravity", "web", "other"];

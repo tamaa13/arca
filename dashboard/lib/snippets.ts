@@ -1,4 +1,5 @@
-// Connector snippets per platform — ported EXACTLY from the legacy dashboard.
+// Connector snippets per platform — every client needs the SAME two things:
+// the URL (connectorUrl) + an `Authorization: Bearer <token>` header. Only the format differs.
 import type { Platform } from "./constants";
 
 export function snippets(connectorUrl: string, token: string): Record<Platform, string> {
@@ -7,11 +8,24 @@ export function snippets(connectorUrl: string, token: string): Record<Platform, 
   return {
     claude: `# Claude Code — CLI (one command, nothing to install):\nclaude mcp add arca --transport http ${url} --header "Authorization: Bearer ${t}"\n\n# Claude Desktop — claude_desktop_config.json:\n{\n  "mcpServers": {\n    "arca": {\n      "url": "${url}",\n      "headers": { "Authorization": "Bearer ${t}" }\n    }\n  }\n}`,
     cursor: `// ~/.cursor/mcp.json\n{\n  "mcpServers": {\n    "arca": {\n      "url": "${url}",\n      "headers": { "Authorization": "Bearer ${t}" }\n    }\n  }\n}`,
-    chatgpt: `ChatGPT → Settings → Connectors → Add custom connector\n\n  Name   Arca\n  URL    ${url}\n  Auth   Bearer ${t}`,
+    opencode: `// opencode.json (project root) — or ~/.config/opencode/opencode.json\n{\n  "$schema": "https://opencode.ai/config.json",\n  "mcp": {\n    "arca": {\n      "type": "remote",\n      "url": "${url}",\n      "enabled": true,\n      "headers": { "Authorization": "Bearer ${t}" }\n    }\n  }\n}`,
+    codex: `# ~/.codex/config.toml  —  native streamable-HTTP (no mcp-remote bridge needed)\n[mcp_servers.arca]\nurl = "${url}"\nbearer_token_env_var = "ARCA_TOKEN"\n\n# then in your shell:\n#   export ARCA_TOKEN="${t}"`,
+    antigravity: `// ~/.gemini/config/mcp_config.json  (IDE: Settings → Customizations → Open MCP Config)\n// NOTE: Antigravity uses "serverUrl", NOT "url"\n{\n  "mcpServers": {\n    "arca": {\n      "serverUrl": "${url}",\n      "headers": { "Authorization": "Bearer ${t}" }\n    }\n  }\n}`,
+    web: `Claude.ai web & ChatGPT web — not yet.\n\nBoth accept OAuth ONLY for custom connectors — there is no field to paste a\nBearer token or custom header. Arca uses a bearer token today; OAuth is being\nadded. Until then use any client above — identical vault:\n  Claude Code (CLI) · Claude Desktop · Cursor · OpenCode · Codex · Antigravity`,
     other: `Any Streamable-HTTP MCP client:\n\n  URL    ${url}\n  Header Authorization: Bearer ${t}`,
   };
 }
 
+const LABELS: Record<Platform, string> = {
+  claude: "Claude",
+  cursor: "Cursor",
+  opencode: "OpenCode",
+  codex: "Codex",
+  antigravity: "Antigravity",
+  web: "Web (OAuth)",
+  other: "Other",
+};
+
 export function platformLabel(p: Platform): string {
-  return p === "other" ? "Other" : p[0].toUpperCase() + p.slice(1);
+  return LABELS[p];
 }
