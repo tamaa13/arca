@@ -25,6 +25,8 @@ fi
 cd "$HOME"
 if [ -d arca/.git ]; then (cd arca && git pull --ff-only); else git clone --depth 1 https://github.com/tamaa13/arca; fi
 cd "$HOME/arca" && "$HOME/.bun/bin/bun" install
+# seed public testnet config if not present (no secrets; user funds session-signer via dashboard)
+[ -f .env.testnet ] || cp deploy/testnet.env .env.testnet
 
 # 3. systemd: Arca MCP (always-on, restart on crash)
 sudo tee /etc/systemd/system/arca.service >/dev/null <<UNIT
@@ -40,6 +42,8 @@ Environment=ARCA_PORT=8787
 ExecStart=$HOME/.bun/bin/bun src/transport/http-server.ts
 Restart=always
 RestartSec=3
+MemoryMax=512M
+CPUQuota=80%
 [Install]
 WantedBy=multi-user.target
 UNIT
