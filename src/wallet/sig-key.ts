@@ -70,6 +70,35 @@ export async function keyFromSignature(sigHex: string): Promise<Uint8Array> {
   return new Uint8Array(bits);
 }
 
+/** HKDF-SHA256(signature, info) -> N bytes. Generic sub-key derivation (distinct `info` domain-separates). */
+async function hkdfBytes(sigHex: string, info: string, bytes: number): Promise<Uint8Array> {
+  const ikm = hexToBytes(sigHex);
+  const base = await subtle.importKey("raw", asBuf(ikm), "HKDF", false, ["deriveBits"]);
+  const bits = await subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: new TextEncoder().encode(info) },
+    base,
+    bytes * 8,
+  );
+  return new Uint8Array(bits);
+}
+
+const toHex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+
+/**
+ * Deterministic session-signer private key, HKDF-derived from the wallet's signature
+ * (distinct `info` from the memory key). Same wallet + message → SAME signer address every
+ * time, so a re-connect after a restart reuses the already-funded, already-delegated signer
+ * (no re-deposit / re-setDelegate) WITHOUT persisting any secret to disk.
+ */
+export async function signerKeyFromSignature(sigHex: string): Promise<string> {
+  return "0x" + toHex(await hkdfBytes(sigHex, "arca-session-signer-v1", 32));
+}
+
+/** Deterministic bearer token from the wallet's signature → the connector token survives restarts. */
+export async function tokenFromSignature(sigHex: string): Promise<string> {
+  return toHex(await hkdfBytes(sigHex, "arca-token-v1", 18));
+}
+
 /** Ask the wallet to sign the Arca EIP-712 message, derive the AES key from it. */
 export async function deriveMemoryKey(
   signer: TypedDataSigner,

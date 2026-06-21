@@ -14,13 +14,14 @@
  * dashboard). A durable store + real OAuth + an enclave-held key are later phases —
  * this is the functional, testnet-first version. NOT operator-blind yet (no TEE).
  */
-import { randomBytes } from "node:crypto";
 import { verifyTypedData, Wallet } from "ethers";
 import {
   ARCA_KEY_DOMAIN,
   ARCA_KEY_TYPES,
   arcaKeyMessage,
   keyFromSignature,
+  signerKeyFromSignature,
+  tokenFromSignature,
 } from "../wallet/sig-key.js";
 
 export interface UserSession {
@@ -59,19 +60,25 @@ export async function createSession(wallet: string, signatureHex: string): Promi
   const memoryKey = await keyFromSignature(signatureHex);
   const key = wallet.toLowerCase();
 
+  // Signer + token are DETERMINISTIC from the signature (distinct HKDF domains) → the SAME
+  // signer address + token regenerate on every connect, so after a restart the user re-signs
+  // once and reuses the already-funded, already-delegated signer + the same connector token —
+  // no re-deposit, no re-add-connector — WITHOUT writing any secret to disk.
+  const signer = new Wallet(await signerKeyFromSignature(signatureHex));
+  const token = `arca_live_${await tokenFromSignature(signatureHex)}`;
+
   const existing = byWallet.get(key);
   if (existing) {
-    existing.memoryKey = memoryKey; // same signer + token, refreshed key
+    existing.memoryKey = memoryKey; // deterministic signer/token already match
     return existing;
   }
 
-  const signer = Wallet.createRandom();
   const session: UserSession = {
     wallet,
     memoryKey,
     signerKey: signer.privateKey,
     signerAddress: signer.address,
-    token: `arca_live_${randomBytes(18).toString("hex")}`,
+    token,
   };
   byToken.set(session.token, session);
   byWallet.set(key, session);
