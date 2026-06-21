@@ -31,6 +31,7 @@
  *   - All opaque values from crypto.randomBytes (≥32B), base64url-encoded.
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 
 // ── encoding helpers ─────────────────────────────────────────────────────────
 const b64url = (b: Buffer): string => b.toString("base64url");
@@ -77,6 +78,34 @@ export interface RegisterClientInput {
 
 const clients = new Map<string, OAuthClient>();
 
+// Persist the DCR client registry to disk so web connectors (claude.ai/ChatGPT) survive a
+// server restart/redeploy WITHOUT the user re-adding the connector. Client records are NOT
+// secrets (client_id + redirect_uris + metadata; Arca is PKCE-only, no client_secret), so this
+// is safe on a shared host — unlike wallet sessions, which hold the memory key and stay in-memory.
+const CLIENTS_FILE = process.env.ARCA_CLIENTS_FILE;
+function saveClients(): void {
+  if (!CLIENTS_FILE) return;
+  try {
+    writeFileSync(CLIENTS_FILE, JSON.stringify([...clients.values()]));
+  } catch (err) {
+    console.error("[oauth] persist clients failed:", err instanceof Error ? err.message : err);
+  }
+}
+/** Load persisted client registrations at startup (call once, before serving). TTL-filtered. */
+export function loadClients(): void {
+  if (!CLIENTS_FILE) return;
+  try {
+    const arr = JSON.parse(readFileSync(CLIENTS_FILE, "utf8")) as OAuthClient[];
+    const now = Math.floor(Date.now() / 1000);
+    for (const c of arr) {
+      if (c?.client_id && now - c.client_id_issued_at < CLIENT_TTL_S) clients.set(c.client_id, c);
+    }
+    console.error(`[oauth] loaded ${clients.size} persisted client(s)`);
+  } catch {
+    /* no file yet / unreadable — start empty */
+  }
+}
+
 /**
  * Register a client (RFC 7591). Arca is **PKCE-only**: every client is public
  * (`token_endpoint_auth_method: "none"`) and NO client_secret is ever issued. PKCE-S256
@@ -108,6 +137,7 @@ export function registerClient(input: RegisterClientInput): OAuthClient {
     scope: input.scope ?? SCOPES_SUPPORTED.join(" "),
   };
   clients.set(client.client_id, client);
+  saveClients();
   return client;
 }
 
@@ -385,7 +415,9 @@ function sweep(): void {
   for (const [k, r] of authzNonces) if (now > r.expiresAt) authzNonces.delete(k);
   for (const [k, r] of consumedRefresh) if (now > r.expiresAt) consumedRefresh.delete(k);
   // TTL DCR clients out after CLIENT_TTL_S (bounds the table even below MAX_CLIENTS).
-  for (const [k, c] of clients) if (nowS - c.client_id_issued_at > CLIENT_TTL_S) clients.delete(k);
+  let prunedClients = false;
+  for (const [k, c] of clients) if (nowS - c.client_id_issued_at > CLIENT_TTL_S) { clients.delete(k); prunedClients = true; }
+  if (prunedClients) saveClients(); // keep the persisted file in sync after a TTL prune
 }
 
 /** Start the periodic sweep (call once at startup). Unref'd so it never holds the event loop. */

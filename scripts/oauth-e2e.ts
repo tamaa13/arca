@@ -81,15 +81,14 @@ ok(!!sid, "/mcp initialize → returns mcp-session-id");
 const noTok = await fetch(`${BASE}/mcp`, { method: "POST", headers: mcpHdr, body: jstr(initBody) });
 ok(noTok.status === 401 && (noTok.headers.get("www-authenticate") || "").includes("resource_metadata"), "/mcp no token → 401 + WWW-Authenticate");
 
-// ── FIX 3 (compat-tuned): per-request bearer re-check. A WRONG bearer is rejected (so token
-//    revocation/expiry stay effective for clients that re-send it). An ABSENT bearer is ALLOWED:
-//    the bearer-minted 122-bit session id authorizes the connection (clients like OpenCode send
-//    the Authorization header only at initialize, not on every request). ──
+// ── FIX 3 (STRICT, per MCP spec + every official SDK): the bearer MUST ride EVERY /mcp request.
+//    Reusing the valid session id with NO bearer OR a WRONG bearer → BOTH 401 (a leaked
+//    Mcp-Session-Id is not a standalone credential; revocation/expiry effective mid-session). ──
 const followBody = { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} };
 const reuseNoAuth = await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, "mcp-session-id": sid }, body: jstr(followBody) });
-ok(reuseNoAuth.status === 200, "/mcp reuse session id with NO bearer → 200 (session-id binding — OpenCode-compatible)");
+ok(reuseNoAuth.status === 401, "/mcp reuse session id with NO bearer → 401 (strict per-request auth — MCP spec MUST)");
 const reuseBadAuth = await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, "mcp-session-id": sid, authorization: "Bearer garbage_not_a_real_token" }, body: jstr(followBody) });
-ok(reuseBadAuth.status === 401, "/mcp reuse session id with WRONG bearer → 401 (revocation still enforced)");
+ok(reuseBadAuth.status === 401, "/mcp reuse session id with WRONG bearer → 401");
 
 // ── refresh rotation + reuse detection ──
 const r1 = await tokenReq({ grant_type: "refresh_token", refresh_token: tok.refresh_token, client_id });

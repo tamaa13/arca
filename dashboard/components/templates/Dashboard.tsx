@@ -23,8 +23,9 @@ export function Dashboard() {
         {isOAuth ? (
           <>
             <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca vault.
-            Connect your wallet and sign to approve — your memory stays encrypted to your wallet on
-            0G, and the app never sees your key.
+            Connect your wallet and sign to approve — Arca derives your key from that signature
+            (never your private key) and encrypts your memory to your wallet on 0G, recoverable
+            with your wallet alone.
           </>
         ) : (
           <>

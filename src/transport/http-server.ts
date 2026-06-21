@@ -45,6 +45,7 @@ import {
   mintAuthzNonce,
   checkAuthzNonce,
   startOauthSweep,
+  loadClients,
 } from "../auth/oauth.js";
 import { generateBootstrapKeypair, decryptWithPrivkey, type HandoffEnvelope } from "../sandbox/handoff.js";
 import { OG, type MemoryStore } from "../types.js";
@@ -612,15 +613,16 @@ function send401(req: Request, res: Response): void {
   res.status(401).json({ error: "unauthorized — present a valid Bearer token (POST /session first)" });
 }
 
-/** Per-request re-check for an already-bound transport. A PRESENT bearer must STILL resolve to
- *  the same bound session token — so token revocation/expiry take effect mid-session for
- *  spec-compliant clients that re-send the Authorization header on every request (claude.ai).
- *  An ABSENT bearer is allowed: the 122-bit Mcp-Session-Id — minted ONLY by a bearer-
- *  authenticated initialize — authorizes this connection (some clients, e.g. OpenCode, send
- *  the Authorization header only on initialize). A WRONG/invalid bearer is still rejected. */
+/** Per-request re-check for an already-bound transport: the bearer MUST be present on EVERY
+ *  request AND re-resolve to the SAME bound session token. This is what the MCP spec mandates
+ *  ("authorization MUST be included in every HTTP request") and what every official client SDK
+ *  does (the bearer rides every POST/GET/DELETE). So a leaked/absent Mcp-Session-Id is NOT a
+ *  standalone credential, and token revocation/expiry take effect mid-session. (A deep research
+ *  pass confirmed no real remote client is init-only — the earlier OpenCode "evidence" was a
+ *  LOCAL stdio arca that never hit this path, so the prior absent-bearer relaxation was dead
+ *  weight + a downgrade; reverted.) resolveSessionToken returns null for a missing/invalid
+ *  bearer, so an absent bearer fails this equality and 401s. */
 function reauthorized(req: Request, entry: TransportEntry): boolean {
-  const hasBearer = req.headers.authorization?.startsWith("Bearer ") ?? false;
-  if (!hasBearer) return true;
   return resolveSessionToken(req) === entry.sessionToken;
 }
 
@@ -726,6 +728,7 @@ if (!process.env.ARCA_PUBLIC_URL) {
     "WARNING: ARCA_PUBLIC_URL is unset — the OAuth audience + discovery URLs fall back to the request Host header (dev only). A spoofed Host could mis-bind token audience; set ARCA_PUBLIC_URL in production (the deploy compose does).",
   );
 }
+loadClients(); // restore persisted DCR client registrations — web connectors survive restarts
 startOauthSweep(); // periodically prune expired OAuth codes/tokens/nonces (bounds memory)
 app.listen(PORT, process.env.ARCA_HOST ?? "0.0.0.0", () => {
   console.error(`arca MCP (streamable-http, per-user) on ${PUBLIC_URL}${MCP_PATH} · bound ${process.env.ARCA_HOST ?? "0.0.0.0"}:${PORT}`);

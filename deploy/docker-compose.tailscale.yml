@@ -15,6 +15,9 @@ services:
       - ARCA_PORT=8080
       - ARCA_HOST=0.0.0.0
       - ARCA_PUBLIC_URL=https://arca.alpaca-parrotfish.ts.net   # public HTTPS (TLS at the Funnel) → correct connector URL
+      - ARCA_CLIENTS_FILE=/data/oauth-clients.json              # persist DCR registrations across restarts (web connectors survive)
+    volumes:
+      - arca-data:/data
     expose:
       - "8080"
     mem_limit: 512m
@@ -56,3 +59,4 @@ networks:
     driver: bridge
 volumes:
   arca-ts-state:
+  arca-data:

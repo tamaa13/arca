@@ -28,7 +28,8 @@ export function ApproveStep({ arca }: { arca: ArcaApi }) {
       </div>
       <p className="note" style={{ marginTop: 10 }}>
         Approving redirects you back to {arca.oauthClient ?? "the app"} with a one-time
-        authorization code. Your wallet signature stays encrypted to Arca; the app never sees your key.
+        authorization code. Arca derives your key from your signature (never your private key);
+        your memory stays encrypted to your wallet on 0G.
       </p>
     </StepCard>
   );
