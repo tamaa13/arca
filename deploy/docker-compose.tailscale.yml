@@ -24,7 +24,6 @@ services:
   tailscale:
     image: tailscale/tailscale:latest
     container_name: arca-ts
-    hostname: arca
     restart: unless-stopped
     environment:
       - TS_AUTHKEY=${TS_AUTHKEY:?set TS_AUTHKEY}
@@ -38,7 +37,7 @@ services:
     depends_on: [arca]
     mem_limit: 128m
     cpus: 0.5
-    networks: [arcanet]
+    network_mode: "service:arca"   # share arca's netns → funnel proxies to 127.0.0.1:8080 (no cross-container)
 networks:
   arcanet:
     driver: bridge
