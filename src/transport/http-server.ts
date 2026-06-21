@@ -181,7 +181,7 @@ const bySession = async (req: Request, res: Response) => {
 app.get(MCP_PATH, bySession);
 app.delete(MCP_PATH, bySession);
 
-app.listen(PORT, () => {
-  console.error(`arca MCP (streamable-http, per-user) on ${PUBLIC_URL}${MCP_PATH}`);
+app.listen(PORT, process.env.ARCA_HOST ?? "0.0.0.0", () => {
+  console.error(`arca MCP (streamable-http, per-user) on ${PUBLIC_URL}${MCP_PATH} · bound ${process.env.ARCA_HOST ?? "0.0.0.0"}:${PORT}`);
   console.error(`registry ${OG.registry} · chain ${OG.chainId} · POST /session to get a token`);
 });

@@ -39,6 +39,7 @@ User=$USER
 WorkingDirectory=$HOME/arca
 EnvironmentFile=$HOME/arca/.env.testnet
 Environment=ARCA_PORT=8787
+Environment=ARCA_HOST=127.0.0.1
 ExecStart=$HOME/.bun/bin/bun src/transport/http-server.ts
 Restart=always
 RestartSec=3
