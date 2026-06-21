@@ -57,8 +57,19 @@ export class RegistryClient implements MemoryRegistry {
    * @param privKeyHex      The user's secp256k1 private key (signs addRoot txs).
    * @param contractAddress ArcaRegistry address. Defaults to `OG.registry`
    *                        (env ARCA_REGISTRY_ADDR). Throws if both are empty.
+   * @param rpc             RPC URL. Defaults to `OG.rpc`. ALWAYS pass this (and
+   *                        chainId) when contractAddress is a NON-DEFAULT network's
+   *                        registry — otherwise the client talks to the default
+   *                        (env/mainnet) chain while pointing at an address from
+   *                        another network → silent "not a delegate" / empty reads.
+   * @param chainId         Chain id. Defaults to `OG.chainId`.
    */
-  constructor(privKeyHex: string, contractAddress: string = OG.registry) {
+  constructor(
+    privKeyHex: string,
+    contractAddress: string = OG.registry,
+    rpc: string = OG.rpc,
+    chainId: number = OG.chainId,
+  ) {
     if (!contractAddress) {
       throw new Error(
         "ArcaRegistry not deployed — set ARCA_REGISTRY_ADDR to the deployed " +
@@ -68,7 +79,7 @@ export class RegistryClient implements MemoryRegistry {
     }
     this.address = contractAddress;
 
-    const provider = new JsonRpcProvider(OG.rpc, OG.chainId);
+    const provider = new JsonRpcProvider(rpc, chainId);
     const wallet = new Wallet(privKeyHex, provider);
     this.contract = new Contract(contractAddress, ARCA_REGISTRY_ABI, wallet);
   }

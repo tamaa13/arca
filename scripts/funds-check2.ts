@@ -1,0 +1,10 @@
+import { JsonRpcProvider, Contract, formatEther } from "ethers";
+const p = new JsonRpcProvider("https://evmrpc-testnet.0g.ai", 16602);
+const F308 = "0xF308E88aaD991342A537CB47dc02440Cc2Da5Dd2";
+const W485D = "0x1d4D51F08ab86985533Da9D574A3df68336c485D";
+console.log("=== TESTNET (Galileo 16602) balances ===");
+console.log("operator 0xF308 :", formatEther(await p.getBalance(F308)), "0G");
+console.log("485d broker     :", formatEther(await p.getBalance(W485D)), "0G  <- punya 50?");
+const serving = new Contract("0xA07b0033cA65B06B090535944C121D8677FDC12c", ["function getBalance(address,address) view returns (uint256)"], p);
+const dep = await serving.getBalance(F308, "0xB831371eb2703305f1d9F8542163633D0675CEd7");
+console.log("deposit (0xA07b):", formatEther(dep), "0G  (create butuh ~0.06 + runtime)");
