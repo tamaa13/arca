@@ -136,10 +136,12 @@ const DASHBOARD_DIR =
 const BOOTSTRAP = generateBootstrapKeypair();
 
 const app = express();
-// Behind cloudflared / tailscale / the 0G Sandbox ingress: honor X-Forwarded-Proto
-// (so req.protocol reflects the real TLS scheme) and X-Forwarded-For (so req.ip is the
-// real client IP the rate limiter keys on, not the proxy's).
-app.set("trust proxy", true);
+// Behind EXACTLY ONE trusted proxy (tailscale-funnel / cloudflared / 0G Sandbox ingress):
+// trust ONLY that 1 hop. `true` trusts the WHOLE X-Forwarded-For chain → a client could
+// spoof req.ip (leftmost XFF) to bypass the per-IP rate limiter and, since the global cap
+// then binds, lock out everyone. `1` takes the real client IP the single trusted proxy
+// appended (un-spoofable) while still honoring X-Forwarded-Proto=https for force-https.
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true })); // OAuth /token posts x-www-form-urlencoded
 
