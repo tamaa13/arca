@@ -85,11 +85,12 @@ export function useArca(): ArcaApi {
   const [ready, setReady] = useState(false);
 
   // OAuth mode: read the params from the URL once on mount (null = normal dashboard).
-  const oauthRef = useRef<OAuthParams | null>(null);
-  if (oauthRef.current === null && typeof window !== "undefined") {
-    oauthRef.current = readOAuthParams();
-  }
-  const oauth = oauthRef.current;
+  // Read OAuth params AFTER mount (in the restore effect below), NEVER during render:
+  // reading window.location during render makes the client's first paint differ from the
+  // static prerender → React hydration error #418 (which can break event handlers / the
+  // redirect). As state, the first render matches the prerender (null) and we switch to
+  // OAuth mode post-hydration.
+  const [oauth, setOauth] = useState<OAuthParams | null>(null);
   const [oauthRedirect, setOauthRedirect] = useState<string | null>(null);
 
   const [step1Done, setStep1Done] = useState(false);
@@ -266,12 +267,16 @@ export function useArca(): ArcaApi {
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
-    if (oauth) {
+    const o = readOAuthParams(); // client-only, post-hydration — no #418 mismatch
+    setOauth(o);
+    if (o) {
+      // OAuth mode: don't silently restore (each connection is freshly consented + a new
+      // code minted), but still let the user connect+sign; mark ready so the UI shows.
       setReady(true);
       return;
     }
     void restore();
-  }, [oauth, restore]);
+  }, [restore]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {

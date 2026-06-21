@@ -145,6 +145,15 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true })); // OAuth /token posts x-www-form-urlencoded
 
+// Diagnostic request log for the OAuth/MCP handshake endpoints (low volume) — lets us see
+// exactly which step a web-client (claude.ai/ChatGPT) connection reaches + its status code.
+app.use((req, res, next) => {
+  if (/^\/(authorize|token|register|mcp|session|bootstrap|\.well-known)/.test(req.path)) {
+    res.on("finish", () => console.error(`[REQ] ${req.method} ${req.path} ${res.statusCode}`));
+  }
+  next();
+});
+
 /** Open CORS for the unauthenticated OAuth discovery/registration/token endpoints so
  *  cross-origin web clients (claude.ai, chatgpt.com) can call them. These carry no
  *  ambient credentials, so `*` is safe here (we deliberately do NOT blanket /mcp). */
