@@ -26,14 +26,22 @@ const reg = await (await fetch(`${BASE}/register`, { method: "POST", headers: { 
 ok(!!reg.client_id && !reg.client_secret && reg.token_endpoint_auth_method === "none", "DCR: client_id + NO secret + method none");
 const client_id = reg.client_id;
 
-// ── PKCE + GET /authorize (capture cookie) ──
+// ── PKCE ──
 const verifier = b64url(randomBytes(32));
 const challenge = b64url(createHash("sha256").update(verifier).digest());
 const resource = `${BASE}/mcp`;
 const authzUrl = `${BASE}/authorize?response_type=code&client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&code_challenge=${challenge}&code_challenge_method=S256&state=xyz&resource=${encodeURIComponent(resource)}`;
-const authzRes = await fetch(authzUrl, { redirect: "manual" });
-const cookie = /(arca_authz=[^;]+)/.exec(authzRes.headers.get("set-cookie") || "")?.[1];
-ok(authzRes.status === 200 && !!cookie, "GET /authorize: 200 + sets arca_authz cookie");
+
+// A FRESH GET /authorize → a single-use arca_authz cookie (FIX 7: each authorize cookie
+// redeems exactly one approve, so every minting approve needs its own fresh cookie).
+const freshCookie = async (): Promise<string> => {
+  const r = await fetch(authzUrl, { redirect: "manual" });
+  const c = /(arca_authz=[^;]+)/.exec(r.headers.get("set-cookie") || "")?.[1];
+  if (r.status !== 200 || !c) throw new Error(`GET /authorize failed: ${r.status}`);
+  return c;
+};
+const cookie = await freshCookie();
+ok(!!cookie, "GET /authorize: 200 + sets arca_authz cookie");
 
 const wallet = Wallet.createRandom();
 const sig = await wallet.signTypedData(DOMAIN, TYPES, MESSAGE);
@@ -48,7 +56,8 @@ ok((await approve({})).status === 400, "approve WITHOUT cookie → 400 (session-
 const bogus = await approve({ cookie: cookie! }, { resource: "https://evil.example/mcp" });
 ok(bogus.status === 400 && (await bogus.json()).error === "invalid_target", "approve bogus resource → invalid_target");
 
-// ── happy: approve → code → token → /mcp ──
+// ── happy: approve → code → token → /mcp (the original `cookie` is still un-spent here:
+//     the no-cookie + bogus-resource negatives above never reached the nonce check) ──
 const a1 = await approve({ cookie: cookie! });
 const code1 = new URL((await a1.json()).redirect).searchParams.get("code")!;
 ok(a1.status === 200 && !!code1, "approve WITH cookie → code");
@@ -57,16 +66,29 @@ const tok = await t1.json();
 ok(t1.status === 200 && !!tok.access_token && !!tok.refresh_token, "token: access+refresh issued");
 // code replay
 ok((await tokenReq({ grant_type: "authorization_code", code: code1, code_verifier: verifier, redirect_uri, client_id })).status === 400, "token: code replay → 400");
-// PKCE fail on a fresh code
-const code2 = new URL((await (await approve({ cookie: cookie! })).json()).redirect).searchParams.get("code")!;
+// nonce single-use (FIX 7): REUSING that now-spent cookie for a second approve → 400
+ok((await approve({ cookie: cookie! })).status === 400, "approve REUSING spent cookie → 400 (nonce single-use)");
+// PKCE fail on a fresh code (FRESH cookie — the spent one would 400 on the approve itself)
+const code2 = new URL((await (await approve({ cookie: await freshCookie() })).json()).redirect).searchParams.get("code")!;
 ok((await tokenReq({ grant_type: "authorization_code", code: code2, code_verifier: "wrong-verifier", redirect_uri, client_id })).status === 400, "token: wrong PKCE verifier → 400");
 
 // ── /mcp with OAuth access token → 200; without → 401 + WWW-Authenticate ──
 const mcpHdr = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 const withTok = await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, authorization: `Bearer ${tok.access_token}` }, body: jstr(initBody) });
 ok(withTok.status === 200, "/mcp initialize WITH OAuth token → 200 (resolves to session)");
+const sid = withTok.headers.get("mcp-session-id") || "";
+ok(!!sid, "/mcp initialize → returns mcp-session-id");
 const noTok = await fetch(`${BASE}/mcp`, { method: "POST", headers: mcpHdr, body: jstr(initBody) });
 ok(noTok.status === 401 && (noTok.headers.get("www-authenticate") || "").includes("resource_metadata"), "/mcp no token → 401 + WWW-Authenticate");
+
+// ── FIX 3: per-request bearer re-validation — a leaked Mcp-Session-Id is NOT a credential.
+//    Reuse the valid session id but drop / swap the bearer → BOTH must 401 (auth re-checked
+//    on every request, not just at initialize). A non-init JSON-RPC call carries the sid. ──
+const followBody = { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} };
+const reuseNoAuth = await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, "mcp-session-id": sid }, body: jstr(followBody) });
+ok(reuseNoAuth.status === 401, "/mcp reuse session id with NO bearer → 401 (per-request auth)");
+const reuseBadAuth = await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, "mcp-session-id": sid, authorization: "Bearer garbage_not_a_real_token" }, body: jstr(followBody) });
+ok(reuseBadAuth.status === 401, "/mcp reuse session id with WRONG bearer → 401 (per-request auth)");
 
 // ── refresh rotation + reuse detection ──
 const r1 = await tokenReq({ grant_type: "refresh_token", refresh_token: tok.refresh_token, client_id });

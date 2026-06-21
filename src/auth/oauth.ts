@@ -38,11 +38,20 @@ const b64url = (b: Buffer): string => b.toString("base64url");
 const opaque = (bytes = 32): string => b64url(randomBytes(bytes));
 
 const SCOPES_SUPPORTED = ["arca.memory", "offline_access"] as const;
+/** Resource-server scope set — what the protected MCP resource itself advertises.
+ *  `offline_access` is an AS-only grant concept (it gates refresh tokens), NOT a
+ *  capability of the resource, so the PR metadata advertises only `arca.memory`. */
+const RESOURCE_SCOPES_SUPPORTED = ["arca.memory"] as const;
 const DEFAULT_SCOPE = "arca.memory";
 
 const AUTH_CODE_TTL_MS = 60_000; // 60s — short, single-use
 const ACCESS_TTL_S = 3600; // 1h
 const ACCESS_TTL_MS = ACCESS_TTL_S * 1000;
+
+/** Bound the DCR client table (an open registration endpoint is a memory-DoS vector).
+ *  At cap we evict the oldest client; the sweep also TTLs clients out after 24h. */
+const MAX_CLIENTS = 10_000;
+const CLIENT_TTL_S = 24 * 3600; // 24h since issued (epoch-seconds basis)
 
 // ── client registry (Dynamic Client Registration, RFC 7591) ──────────────────
 export interface OAuthClient {
@@ -76,6 +85,18 @@ const clients = new Map<string, OAuthClient>();
  * entirely. Claude.ai / ChatGPT web connectors are public clients, so nothing is lost.)
  */
 export function registerClient(input: RegisterClientInput): OAuthClient {
+  // Bound the table: at cap, evict the oldest client (smallest issued_at) before insert.
+  if (clients.size >= MAX_CLIENTS) {
+    let oldestKey: string | undefined;
+    let oldestAt = Infinity;
+    for (const [k, c] of clients) {
+      if (c.client_id_issued_at < oldestAt) {
+        oldestAt = c.client_id_issued_at;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) clients.delete(oldestKey);
+  }
   const client: OAuthClient = {
     client_id: opaque(24),
     client_id_issued_at: Math.floor(Date.now() / 1000),
@@ -176,9 +197,10 @@ interface RefreshTokenRecord {
 
 const accessTokens = new Map<string, AccessTokenRecord>();
 const refreshTokens = new Map<string, RefreshTokenRecord>();
-/** Reuse detection: a rotated (already-consumed) refresh token → its family id. Presenting
- *  one again is a theft signal → the whole family is revoked (OAuth 2.1 §4.3.1). */
-const consumedRefresh = new Map<string, string>();
+/** Reuse detection: a rotated (already-consumed) refresh token → its family id (+ the
+ *  family's absolute expiry, so the sweep can evict it). Presenting one again is a theft
+ *  signal → the whole family is revoked (OAuth 2.1 §4.3.1). */
+const consumedRefresh = new Map<string, { family: string; expiresAt: number }>();
 
 export interface TokenResponse {
   access_token: string;
@@ -241,9 +263,9 @@ export function issueTokens(input: IssueTokensInput): TokenResponse {
  * Returns null (→ invalid_grant) if unknown, wrong client, reused, or expired.
  */
 export function rotateRefresh(refresh_token: string, client_id: string): TokenResponse | null {
-  const reusedFamily = consumedRefresh.get(refresh_token);
-  if (reusedFamily) {
-    revokeFamily(reusedFamily); // theft signal — burn the whole chain
+  const reused = consumedRefresh.get(refresh_token);
+  if (reused) {
+    revokeFamily(reused.family); // theft signal — burn the whole chain
     return null;
   }
   const rec = refreshTokens.get(refresh_token);
@@ -253,7 +275,7 @@ export function rotateRefresh(refresh_token: string, client_id: string): TokenRe
     return null;
   }
   refreshTokens.delete(refresh_token);
-  consumedRefresh.set(refresh_token, rec.family); // remember for reuse detection
+  consumedRefresh.set(refresh_token, { family: rec.family, expiresAt: rec.familyExpiresAt }); // remember for reuse detection
   return issueTokens({
     sessionToken: rec.sessionToken,
     client_id: rec.client_id,
@@ -308,7 +330,7 @@ export function protectedResourceMetadata(baseUrl: string) {
   return {
     resource: `${baseUrl}/mcp`,
     authorization_servers: [baseUrl],
-    scopes_supported: [...SCOPES_SUPPORTED],
+    scopes_supported: [...RESOURCE_SCOPES_SUPPORTED],
     bearer_methods_supported: ["header"],
   };
 }
@@ -347,16 +369,23 @@ export function checkAuthzNonce(
     if (rec) authzNonces.delete(nonce);
     return false;
   }
-  return rec.client_id === client_id && rec.code_challenge === code_challenge;
+  const match = rec.client_id === client_id && rec.code_challenge === code_challenge;
+  // Single-use: a nonce redeems EXACTLY ONE approve (each GET /authorize → one code).
+  if (match) authzNonces.delete(nonce);
+  return match;
 }
 
 // ── periodic sweep (bound the in-memory Maps; open DCR could otherwise grow them) ──
 function sweep(): void {
   const now = Date.now();
+  const nowS = Math.floor(now / 1000);
   for (const [k, r] of authCodes) if (now > r.expiresAt) authCodes.delete(k);
   for (const [k, r] of accessTokens) if (now > r.expiresAt) accessTokens.delete(k);
   for (const [k, r] of refreshTokens) if (now > r.familyExpiresAt) refreshTokens.delete(k);
   for (const [k, r] of authzNonces) if (now > r.expiresAt) authzNonces.delete(k);
+  for (const [k, r] of consumedRefresh) if (now > r.expiresAt) consumedRefresh.delete(k);
+  // TTL DCR clients out after CLIENT_TTL_S (bounds the table even below MAX_CLIENTS).
+  for (const [k, c] of clients) if (nowS - c.client_id_issued_at > CLIENT_TTL_S) clients.delete(k);
 }
 
 /** Start the periodic sweep (call once at startup). Unref'd so it never holds the event loop. */

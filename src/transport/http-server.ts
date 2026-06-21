@@ -54,11 +54,23 @@ const BEARER = process.env.ARCA_BEARER ?? ""; // optional dev single-user (local
 const PUBLIC_URL = process.env.ARCA_PUBLIC_URL ?? `http://localhost:${PORT}`;
 const MCP_PATH = "/mcp";
 
+/** Is a host (possibly `host:port`) a loopback/dev host (http allowed)? */
+function isLocalHost(host: string | undefined): boolean {
+  const h = (host ?? "").split(":")[0].toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+}
+
 /** The public base URL (no trailing slash). ARCA_PUBLIC_URL wins; else derive from the
- *  request (the 0G Sandbox nip.io host when deployed). Mirrors the /session `base` logic. */
+ *  request (the 0G Sandbox nip.io host when deployed). For any NON-localhost host we FORCE
+ *  https — behind cloudflared/tailscale the inbound is TLS-terminated, and the AS/PR
+ *  discovery + WWW-Authenticate issuer must NEVER advertise an http:// origin to a web
+ *  client (it would be rejected / a downgrade vector). localhost stays http for dev. */
 function baseUrlOf(req: Request): string {
-  const b = process.env.ARCA_PUBLIC_URL || `${req.protocol}://${req.headers.host}` || PUBLIC_URL;
-  return b.replace(/\/+$/, "");
+  if (process.env.ARCA_PUBLIC_URL) return process.env.ARCA_PUBLIC_URL.replace(/\/+$/, "");
+  const host = req.headers.host;
+  if (!host) return PUBLIC_URL.replace(/\/+$/, "");
+  const proto = isLocalHost(host) ? req.protocol : "https";
+  return `${proto}://${host}`.replace(/\/+$/, "");
 }
 /** The canonical MCP resource URI — the OAuth audience access tokens are bound to. */
 function resourceOf(req: Request): string {
@@ -75,32 +87,42 @@ function buildRemoteStore(s: UserSession): MemoryStore {
   );
 }
 
+/** Sentinel "session token" for the dev single-user ARCA_BEARER path (no UserSession). */
+const DEV_LOCAL_TOKEN = "__dev_local__";
+
 /**
- * Resolve a request's bearer → the store it may use. Three accepted token shapes:
+ * Resolve a request's bearer → the canonical SESSION TOKEN it is bound to (or null).
+ * This is the per-request credential we re-check on EVERY /mcp request (not just init),
+ * and the value we pin a live transport to — so a leaked Mcp-Session-Id alone is useless,
+ * and revoking/expiring a token immediately stops in-flight sessions. Three token shapes:
  *   1. `arca_live_…`  — the deterministic per-user session token (CLI clients, dashboard).
  *   2. an OAuth access token (web clients) — audience-checked against THIS resource,
- *      then resolved to the bound UserSession (no token passthrough: we use Arca's own signer).
- *   3. ARCA_BEARER     — the dev single-user local-key path.
+ *      then mapped to the bound session token (verify its UserSession still exists).
+ *   3. ARCA_BEARER     — the dev single-user local-key path → DEV_LOCAL_TOKEN sentinel.
  */
-function resolveStore(req: Request): MemoryStore | null {
+function resolveSessionToken(req: Request): string | null {
   const auth = req.headers.authorization;
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;
 
-  // (1) deterministic per-user session bearer
-  const session = sessionForToken(token);
-  if (session) return buildRemoteStore(session);
+  // (1) deterministic per-user session bearer — the bearer IS the session token.
+  if (sessionForToken(token)) return token;
 
-  // (2) OAuth access token → bound sessionToken (audience-locked to our /mcp resource)
+  // (2) OAuth access token → bound sessionToken (audience-locked to our /mcp resource).
   const boundSessionToken = validateAccessToken(token, resourceOf(req));
-  if (boundSessionToken) {
-    const s = sessionForToken(boundSessionToken);
-    if (s) return buildRemoteStore(s);
-  }
+  if (boundSessionToken && sessionForToken(boundSessionToken)) return boundSessionToken;
 
-  // (3) dev/local single-user
-  if (BEARER && token === BEARER) return buildStore();
+  // (3) dev/local single-user.
+  if (BEARER && token === BEARER) return DEV_LOCAL_TOKEN;
+
   return null;
+}
+
+/** Build the store a resolved session token may use (mirrors resolveSessionToken's shapes). */
+function storeForSessionToken(st: string): MemoryStore | null {
+  if (st === DEV_LOCAL_TOKEN) return buildStore();
+  const s = sessionForToken(st);
+  return s ? buildRemoteStore(s) : null;
 }
 
 const DASHBOARD_DIR =
@@ -114,6 +136,10 @@ const DASHBOARD_DIR =
 const BOOTSTRAP = generateBootstrapKeypair();
 
 const app = express();
+// Behind cloudflared / tailscale / the 0G Sandbox ingress: honor X-Forwarded-Proto
+// (so req.protocol reflects the real TLS scheme) and X-Forwarded-For (so req.ip is the
+// real client IP the rate limiter keys on, not the proxy's).
+app.set("trust proxy", true);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true })); // OAuth /token posts x-www-form-urlencoded
 
@@ -124,6 +150,63 @@ function corsOpen(res: Response): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
+}
+
+// ─── rate limiting (per-IP sliding window + global cap) ─────────────────────────
+// The unauthenticated OAuth endpoints (/register, /session, /authorize, …) run real
+// work (ECDSA-recover + 3×HKDF, DCR inserts). A tiny in-memory sliding-window limiter
+// caps abuse cheaply. trust proxy is on, so req.ip is the real client IP.
+const RL_WINDOW_MS = 60_000;
+const RL_PER_IP_MAX = 30; // per IP / window
+const RL_GLOBAL_MAX = 600; // across all IPs / window
+const rlHits = new Map<string, number[]>(); // ip → recent request timestamps
+const rlGlobal: number[] = []; // all recent request timestamps
+
+/** Drop timestamps older than the window from `arr` (in place); returns its new length. */
+function prune(arr: number[], now: number): number {
+  let i = 0;
+  while (i < arr.length && now - arr[i] >= RL_WINDOW_MS) i++;
+  if (i > 0) arr.splice(0, i);
+  return arr.length;
+}
+
+function rateLimit(req: Request, res: Response, next: () => void): void {
+  const now = Date.now();
+  // Global cap first (cheap DoS ceiling regardless of source distribution).
+  if (prune(rlGlobal, now) >= RL_GLOBAL_MAX) {
+    res.status(429).json({ error: "rate_limited" });
+    return;
+  }
+  const ip = req.ip || "unknown";
+  let arr = rlHits.get(ip);
+  if (!arr) {
+    arr = [];
+    rlHits.set(ip, arr);
+  }
+  if (prune(arr, now) >= RL_PER_IP_MAX) {
+    res.status(429).json({ error: "rate_limited" });
+    return;
+  }
+  arr.push(now);
+  rlGlobal.push(now);
+  next();
+}
+
+// Bound the limiter map: periodically drop IPs with no recent hits (unref'd).
+{
+  const t = setInterval(() => {
+    const now = Date.now();
+    if (prune(rlGlobal, now) === 0) rlGlobal.length = 0;
+    for (const [ip, arr] of rlHits) if (prune(arr, now) === 0) rlHits.delete(ip);
+  }, RL_WINDOW_MS);
+  if (typeof t.unref === "function") t.unref();
+}
+
+/** A canonical wallet signature is 0x + 65 bytes (r‖s‖v) = 130 hex chars. Reject junk
+ *  cheaply BEFORE the expensive ECDSA-recover + 3×HKDF in createSession. */
+const SIG_RE = /^0x[0-9a-fA-F]{130}$/;
+function malformedSig(sig: unknown): boolean {
+  return typeof sig === "string" && !SIG_RE.test(sig);
 }
 
 // Dashboard (connect wallet · sign · deposit · setDelegate · connector) at `/`.
@@ -179,15 +262,34 @@ function isValidRedirectUri(u: string): boolean {
   }
 }
 
-// Dynamic Client Registration (RFC 7591).
-app.post("/register", (req, res) => {
+// Dynamic Client Registration (RFC 7591). Bounded inputs (anti memory-DoS).
+const MAX_REDIRECT_URIS = 5;
+const MAX_URI_LEN = 512;
+const MAX_META_LEN = 256;
+app.post("/register", rateLimit, (req, res) => {
   corsOpen(res);
-  const body = (req.body ?? {}) as { redirect_uris?: unknown };
+  const body = (req.body ?? {}) as { redirect_uris?: unknown; client_name?: unknown; scope?: unknown };
   const uris = body.redirect_uris;
-  if (!Array.isArray(uris) || uris.length === 0 || !uris.every((u) => typeof u === "string" && isValidRedirectUri(u))) {
+  if (
+    !Array.isArray(uris) ||
+    uris.length === 0 ||
+    uris.length > MAX_REDIRECT_URIS ||
+    !uris.every((u) => typeof u === "string" && u.length <= MAX_URI_LEN && isValidRedirectUri(u))
+  ) {
     res.status(400).json({
       error: "invalid_redirect_uri",
-      error_description: "redirect_uris must be a non-empty array of absolute https (or localhost http) URIs",
+      error_description: `redirect_uris must be 1–${MAX_REDIRECT_URIS} absolute https (or localhost http) URIs, each ≤${MAX_URI_LEN} chars`,
+    });
+    return;
+  }
+  // Bound the free-text metadata fields so a client can't bloat the table entry.
+  if (
+    (typeof body.client_name === "string" && body.client_name.length > MAX_META_LEN) ||
+    (typeof body.scope === "string" && body.scope.length > MAX_META_LEN)
+  ) {
+    res.status(400).json({
+      error: "invalid_client_metadata",
+      error_description: `client_name and scope must each be ≤${MAX_META_LEN} chars`,
     });
     return;
   }
@@ -197,19 +299,16 @@ app.post("/register", (req, res) => {
 
 // /authorize — validate the request, then serve the dashboard SPA (it reads the OAuth
 // params from window.location.search and runs the wallet connect+sign flow).
-app.get("/authorize", (req, res) => {
+app.get("/authorize", rateLimit, (req, res) => {
   const q = req.query as Record<string, string | undefined>;
   const client = q.client_id ? getClient(q.client_id) : undefined;
-
-  // Invalid client / redirect_uri → 400 HTML (NEVER redirect — prevents open redirect).
-  if (!client) {
-    res.status(400).type("html").send("<h1>invalid_client</h1><p>Unknown or missing client_id.</p>");
-    return;
-  }
   const redirectUri = q.redirect_uri ?? "";
-  if (!redirectUri || !client.redirect_uris.includes(redirectUri)) {
-    // EXACT match against registered URIs — no prefix/substring.
-    res.status(400).type("html").send("<h1>invalid_redirect_uri</h1><p>redirect_uri is not registered for this client.</p>");
+
+  // Invalid client OR unregistered redirect_uri → ONE generic 400 HTML (NEVER redirect —
+  // prevents open redirect). The two cases are collapsed so an attacker can't use the
+  // response to distinguish a registered client_id from an unknown one (enumeration oracle).
+  if (!client || !redirectUri || !client.redirect_uris.includes(redirectUri)) {
+    res.status(400).type("html").send("<h1>invalid request</h1><p>The authorization request is invalid.</p>");
     return;
   }
 
@@ -240,7 +339,7 @@ app.get("/authorize", (req, res) => {
 // wallet signature (or operator-blind envelope) + the OAuth params from the URL. We
 // re-validate everything, createSession(...) (the deterministic UserSession), then mint
 // an auth code bound to {client_id, redirect_uri, code_challenge, session.token, ...}.
-app.post("/authorize/approve", async (req, res) => {
+app.post("/authorize/approve", rateLimit, async (req, res) => {
   try {
     const b = (req.body ?? {}) as {
       wallet?: string;
@@ -291,6 +390,12 @@ app.post("/authorize/approve", async (req, res) => {
       res.status(400).json({ error: "invalid_request", error_description: "wallet is required" });
       return;
     }
+    // Cheap pre-check: reject a malformed raw signature BEFORE the costly ECDSA-recover +
+    // 3×HKDF in createSession (an envelope is decrypted first, so only gate a present sig).
+    if (malformedSig(b.signature)) {
+      res.status(400).json({ error: "invalid_request" });
+      return;
+    }
 
     // Recover the signature (decrypt the envelope in-process / in-enclave if present).
     let sig = b.signature;
@@ -332,12 +437,15 @@ app.post("/authorize/approve", async (req, res) => {
       chainId: OG.chainId,
     });
   } catch (err) {
-    res.status(400).json({ error: "invalid_request", error_description: err instanceof Error ? err.message : String(err) });
+    // Do NOT echo err.message (info leak — e.g. "signature does not match wallet" is an
+    // oracle). Log internally, return a fixed generic body.
+    console.error("[/authorize/approve] error:", err);
+    res.status(400).json({ error: "invalid_request" });
   }
 });
 
 // /token — authorization_code (PKCE) + refresh_token (rotation).
-app.post("/token", (req, res) => {
+app.post("/token", rateLimit, (req, res) => {
   corsOpen(res);
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Pragma", "no-cache");
@@ -400,7 +508,7 @@ app.post("/token", (req, res) => {
 // Login — the dashboard posts {wallet, signature} OR {wallet, envelope}. The envelope
 // is the signature ECIES-encrypted to /bootstrap/pubkey; it is decrypted in-process
 // (in-enclave when running sealed), so a relay/operator never sees the signature.
-app.post("/session", async (req, res) => {
+app.post("/session", rateLimit, async (req, res) => {
   try {
     const { wallet, signature, envelope } = (req.body ?? {}) as {
       wallet?: string;
@@ -409,6 +517,12 @@ app.post("/session", async (req, res) => {
     };
     if (!wallet) {
       res.status(400).json({ error: "wallet is required" });
+      return;
+    }
+    // Cheap pre-check: reject a malformed raw signature BEFORE the costly ECDSA-recover +
+    // 3×HKDF in createSession (an envelope is decrypted first, so only gate a present sig).
+    if (malformedSig(signature)) {
+      res.status(400).json({ error: "invalid_request" });
       return;
     }
     let sig = signature;
@@ -427,17 +541,19 @@ app.post("/session", async (req, res) => {
     const s = await createSession(wallet, sig);
     // Prefer the request's own host (the 0G Sandbox nip.io endpoint when deployed)
     // so the connector URL is correct wherever the container runs; ARCA_PUBLIC_URL overrides.
-    const base = process.env.ARCA_PUBLIC_URL || `${req.protocol}://${req.headers.host}` || PUBLIC_URL;
+    // baseUrlOf forces https for non-localhost (no http:// connector URL leaks to clients).
     res.json({
       token: s.token,
-      connectorUrl: `${base}${MCP_PATH}`,
+      connectorUrl: resourceOf(req),
       signerAddress: s.signerAddress, // fund this (deposit) + setDelegate it on the registry
       registry: OG.registry,
       chainId: OG.chainId,
       next: "Fund signerAddress with 0G and call setDelegate(signerAddress,true) on the registry, then add the connector to any agent with the token.",
     });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    // Generic body (no err.message leak — could be an ownership oracle); log internally.
+    console.error("[/session] error:", err);
+    res.status(400).json({ error: "invalid_request" });
   }
 });
 
@@ -451,25 +567,63 @@ app.get("/session", (req, res) => {
     res.status(401).json({ error: "invalid or expired token" });
     return;
   }
-  const base = process.env.ARCA_PUBLIC_URL || `${req.protocol}://${req.headers.host}` || PUBLIC_URL;
   res.json({
     token: s.token,
     wallet: s.wallet,
-    connectorUrl: `${base}${MCP_PATH}`,
+    connectorUrl: resourceOf(req),
     signerAddress: s.signerAddress,
     registry: OG.registry,
     chainId: OG.chainId,
   });
 });
 
-// One transport per MCP session, keyed by the Mcp-Session-Id header.
-const transports: Record<string, StreamableHTTPServerTransport> = {};
+// One transport per MCP session, keyed by the Mcp-Session-Id header. Each entry pins the
+// SESSION TOKEN the session was authenticated as + its last-activity time. We re-validate
+// the bearer on EVERY request and assert it still resolves to this exact session token —
+// so revocation/expiry takes effect mid-session and a leaked Mcp-Session-Id is not enough.
+interface TransportEntry {
+  transport: StreamableHTTPServerTransport;
+  sessionToken: string;
+  lastActivity: number;
+}
+const transports: Record<string, TransportEntry> = {};
+
+const IDLE_TIMEOUT_MS = 10 * 60_000; // 10 min — close + drop idle transports
+const MAX_SESSIONS_PER_TOKEN = 10; // cap concurrent MCP sessions per user (anti-DoS)
+
+/** Send the RFC 9728 §5.1 401 pointing unauthenticated clients at the PR metadata (so web
+ *  clients can discover the AS) + a scope hint. Used for both init and per-request auth. */
+function send401(req: Request, res: Response): void {
+  res.setHeader(
+    "WWW-Authenticate",
+    `Bearer resource_metadata="${baseUrlOf(req)}/.well-known/oauth-protected-resource", scope="arca.memory"`,
+  );
+  res.status(401).json({ error: "unauthorized — present a valid Bearer token (POST /session first)" });
+}
+
+// Idle sweep: close + delete any transport untouched for IDLE_TIMEOUT_MS (unref'd).
+{
+  const t = setInterval(() => {
+    const now = Date.now();
+    for (const [sid, e] of Object.entries(transports)) {
+      if (now - e.lastActivity > IDLE_TIMEOUT_MS) {
+        delete transports[sid];
+        try {
+          e.transport.close();
+        } catch {
+          /* already closed */
+        }
+      }
+    }
+  }, 60_000);
+  if (typeof t.unref === "function") t.unref();
+}
 
 app.post(MCP_PATH, async (req: Request, res: Response) => {
   const sid = req.headers["mcp-session-id"] as string | undefined;
-  let transport = sid ? transports[sid] : undefined;
+  const entry = sid ? transports[sid] : undefined;
 
-  if (!transport) {
+  if (!entry) {
     if (!isInitializeRequest(req.body)) {
       res.status(400).json({
         jsonrpc: "2.0",
@@ -478,42 +632,70 @@ app.post(MCP_PATH, async (req: Request, res: Response) => {
       });
       return;
     }
-    // Bind the per-user store at initialize (the bearer is present on this request).
-    const store = resolveStore(req);
-    if (!store) {
-      // RFC 9728 §5.1 — point unauthenticated clients at the protected-resource metadata
-      // so web clients (claude.ai, chatgpt.com) can discover the OAuth AS and start the flow.
-      res.setHeader(
-        "WWW-Authenticate",
-        `Bearer resource_metadata="${baseUrlOf(req)}/.well-known/oauth-protected-resource"`,
-      );
-      res.status(401).json({ error: "unauthorized — present a valid Bearer token (POST /session first)" });
+    // Authenticate at initialize → the bound session token, then build its store.
+    const sessionToken = resolveSessionToken(req);
+    if (!sessionToken) {
+      send401(req, res);
       return;
     }
-    transport = new StreamableHTTPServerTransport({
+    // Per-user session cap (anti-DoS): a single user can't open unbounded transports.
+    let live = 0;
+    for (const e of Object.values(transports)) if (e.sessionToken === sessionToken) live++;
+    if (live >= MAX_SESSIONS_PER_TOKEN) {
+      res.status(429).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Too many concurrent sessions — close an existing one first." },
+        id: null,
+      });
+      return;
+    }
+    const store = storeForSessionToken(sessionToken);
+    if (!store) {
+      send401(req, res);
+      return;
+    }
+    const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (id) => {
-        transports[id] = transport!;
+        transports[id] = { transport, sessionToken, lastActivity: Date.now() };
       },
     });
     transport.onclose = () => {
-      if (transport!.sessionId) delete transports[transport!.sessionId];
+      if (transport.sessionId) delete transports[transport.sessionId];
     };
     await buildArcaServer(store).connect(transport);
+    await transport.handleRequest(req, res, req.body);
+    return;
   }
 
-  await transport.handleRequest(req, res, req.body);
+  // Per-request re-validation: the bearer must STILL resolve to the same session token this
+  // transport was bound to. Blocks a leaked/guessed Mcp-Session-Id used with no/another bearer
+  // and makes token revocation/expiry effective mid-session.
+  const sessionToken = resolveSessionToken(req);
+  if (sessionToken !== entry.sessionToken) {
+    send401(req, res);
+    return;
+  }
+  entry.lastActivity = Date.now();
+  await entry.transport.handleRequest(req, res, req.body);
 });
 
-// GET (SSE stream) + DELETE (close) reuse the session's already-bound transport.
+// GET (SSE stream) + DELETE (close) reuse the session's already-bound transport — same
+// per-request bearer re-validation applies (the session id is NOT a standalone credential).
 const bySession = async (req: Request, res: Response) => {
   const sid = req.headers["mcp-session-id"] as string | undefined;
-  const transport = sid ? transports[sid] : undefined;
-  if (!transport) {
+  const entry = sid ? transports[sid] : undefined;
+  if (!entry) {
     res.status(400).send("Invalid or missing session id");
     return;
   }
-  await transport.handleRequest(req, res);
+  const sessionToken = resolveSessionToken(req);
+  if (sessionToken !== entry.sessionToken) {
+    send401(req, res);
+    return;
+  }
+  entry.lastActivity = Date.now();
+  await entry.transport.handleRequest(req, res);
 };
 app.get(MCP_PATH, bySession);
 app.delete(MCP_PATH, bySession);
