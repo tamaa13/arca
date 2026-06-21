@@ -1,0 +1,35 @@
+# Arca — rootless-Docker deploy for a SHARED VPS.
+#   docker compose -f deploy/docker-compose.yml up -d --build
+# - arca: MCP server. NO published host port (only reachable inside arcanet) → nothing exposed to the public IP.
+# - cloudflared: outbound tunnel → public HTTPS URL. No inbound port / firewall change.
+# - resource-capped (good guest on a shared box). Survives reboot (restart: unless-stopped).
+services:
+  arca:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: arca:local
+    container_name: arca
+    restart: unless-stopped
+    env_file:
+      - ./testnet.env          # public 0G testnet config (no secrets)
+    environment:
+      - ARCA_PORT=8080
+      - ARCA_HOST=0.0.0.0      # container-internal only; not published to host
+    expose:
+      - "8080"                 # visible to cloudflared on arcanet, NOT to the host/public
+    mem_limit: 512m
+    cpus: 1.0
+    networks: [arcanet]
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: arca-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://arca:8080
+    depends_on: [arca]
+    mem_limit: 128m
+    cpus: 0.5
+    networks: [arcanet]
+networks:
+  arcanet:
+    driver: bridge
