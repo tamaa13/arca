@@ -249,8 +249,14 @@ export interface IssueTokensInput {
   familyExpiresAt?: number;
 }
 
+/** A fresh rotation-family id. Exposed so the resource server can mint the family up front
+ *  and bind an OAuth web-connector row to it (see registerOauthConnector) at token issuance. */
+export function newFamily(): string {
+  return opaque(16);
+}
+
 /** Revoke every access+refresh token in a rotation family (theft / reuse response). */
-function revokeFamily(family: string): void {
+export function revokeFamily(family: string): void {
   for (const [t, r] of accessTokens) if (r.family === family) accessTokens.delete(t);
   for (const [t, r] of refreshTokens) if (r.family === family) refreshTokens.delete(t);
 }

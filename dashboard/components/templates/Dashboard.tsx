@@ -9,6 +9,7 @@ import { AuthorizeStep } from "@/components/organisms/AuthorizeStep";
 import { ConnectorStep } from "@/components/organisms/ConnectorStep";
 import { ApproveStep } from "@/components/organisms/ApproveStep";
 import { UsagePanel } from "@/components/organisms/UsagePanel";
+import { ConnectedAgentsPanel } from "@/components/organisms/ConnectedAgentsPanel";
 
 export function Dashboard() {
   const arca = useArca();
@@ -43,6 +44,7 @@ export function Dashboard() {
       <DepositStep arca={arca} />
       <AuthorizeStep arca={arca} />
       {isOAuth ? <ApproveStep arca={arca} /> : <ConnectorStep arca={arca} />}
+      {!isOAuth && <ConnectedAgentsPanel arca={arca} />}
 
       <div className="note">
         0G Galileo testnet · registry <span className="mono">{registry}</span>

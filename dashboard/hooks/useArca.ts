@@ -27,6 +27,7 @@ import {
 } from "@/lib/constants";
 import { encryptToPubkey } from "@/lib/crypto";
 import { readOAuthParams, clientLabel, type OAuthParams } from "@/lib/oauth";
+import { connectorMgmtMessage, type ConnectorListing } from "@/lib/connectors";
 import type { SessionData, StatusMessage, StatusKind } from "@/lib/types";
 
 const short = (a?: string) => (a ? a.slice(0, 8) + "…" + a.slice(-6) : "");
@@ -67,6 +68,11 @@ export interface ArcaState {
   saveCount: number | null; // memories anchored on-chain (rootCount)
   lowBalance: boolean;
   signerExplorerUrl: string | null;
+  // connected agents (granular per-connector tokens)
+  connectors: ConnectorListing[] | null; // null = not loaded yet
+  newConnectorToken: string | null; // a just-minted token, shown ONCE (then null)
+  connectorBusy: boolean;
+  connectorStatus: StatusMessage;
 }
 
 export interface ArcaApi extends ArcaState {
@@ -75,6 +81,10 @@ export interface ArcaApi extends ArcaState {
   deposit: (amount: string) => Promise<void>;
   authorize: () => Promise<void>;
   disconnect: () => void;
+  // connected agents
+  mintConnector: (label: string) => Promise<void>;
+  revokeConnector: (id: string) => Promise<void>;
+  dismissNewToken: () => void;
 }
 
 const blank: StatusMessage = { text: "", kind: "" };
@@ -123,6 +133,12 @@ export function useArca(): ArcaApi {
   const [balance, setBalance] = useState<string | null>(null);
   const [saveCount, setSaveCount] = useState<number | null>(null);
   const [lowBalance, setLowBalance] = useState(false);
+
+  // connected agents (granular per-connector tokens)
+  const [connectors, setConnectors] = useState<ConnectorListing[] | null>(null);
+  const [newConnectorToken, setNewConnectorToken] = useState<string | null>(null);
+  const [connectorBusy, setConnectorBusy] = useState(false);
+  const [connectorStatus, setConnectorStatus] = useState<StatusMessage>(blank);
 
   const setStatus = useCallback((key: StatusKey, text: string, kind: StatusKind = "") => {
     const msg = { text, kind };
@@ -230,6 +246,107 @@ export function useArca(): ArcaApi {
       /* ignore */
     }
   }, [getReadProvider]);
+
+  // Ensure a wallet signer is live (the management sig needs it). After a cached-session
+  // restore the signer may be null (no re-sign happened) — lazily re-bind it from the
+  // already-connected wallet so add/revoke work without forcing a full reconnect.
+  const ensureSigner = useCallback(async (): Promise<JsonRpcSigner> => {
+    if (signerRef.current) return signerRef.current;
+    if (!window.ethereum) throw new Error("No wallet found — install MetaMask.");
+    providerRef.current = new BrowserProvider(window.ethereum);
+    signerRef.current = await providerRef.current.getSigner();
+    return signerRef.current;
+  }, []);
+
+  // Load the wallet's connectors (labels/status only — no secrets). Bearer-authed.
+  const refreshConnectors = useCallback(async () => {
+    const token = sessionRef.current?.token;
+    if (!token) return;
+    try {
+      const r = await fetch("/connectors", { headers: { Authorization: "Bearer " + token } });
+      if (r.ok) {
+        const j = (await r.json()) as { connectors?: ConnectorListing[] };
+        setConnectors(j.connectors ?? []);
+      }
+    } catch {
+      /* ignore — transient */
+    }
+  }, []);
+
+  // Mint a new per-agent connector token: the wallet signs a domain-separated EIP-191 message,
+  // the server returns the raw token ONCE (we show it, then it's unrecoverable).
+  const mintConnector = useCallback(
+    async (label: string) => {
+      const name = label.trim();
+      if (!name) {
+        setConnectorStatus({ text: "give the connector a label first", kind: "err" });
+        return;
+      }
+      const wallet = accountRef.current;
+      if (!wallet) {
+        setConnectorStatus({ text: "connect a wallet first", kind: "err" });
+        return;
+      }
+      try {
+        setConnectorBusy(true);
+        setNewConnectorToken(null);
+        setConnectorStatus({ text: "sign in your wallet to add the connector…", kind: "" });
+        const signer = await ensureSigner();
+        const issuedAt = Date.now();
+        const signature = await signer.signMessage(connectorMgmtMessage({ action: "add", wallet, label: name, issuedAt }));
+        const r = await fetch("/connectors/mint", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ wallet, label: name, issuedAt, signature }),
+        });
+        const j = (await r.json()) as { token?: string; reason?: string; error?: string };
+        if (!r.ok || !j.token) throw new Error(j.reason || j.error || "mint failed");
+        setNewConnectorToken(j.token);
+        setConnectorStatus({ text: `added "${name}" ✓ — copy the token now, it is shown only once`, kind: "ok" });
+        await refreshConnectors();
+      } catch (e: unknown) {
+        setConnectorStatus({ text: (e as Error)?.message || String(e), kind: "err" });
+      } finally {
+        setConnectorBusy(false);
+      }
+    },
+    [ensureSigner, refreshConnectors],
+  );
+
+  // Revoke ONE connector (by opaque id). Kills only that agent's access — the others (and any
+  // web/OAuth connections) keep working. Enforced on the very next request server-side.
+  const revokeConnector = useCallback(
+    async (id: string) => {
+      const wallet = accountRef.current;
+      if (!wallet) {
+        setConnectorStatus({ text: "connect a wallet first", kind: "err" });
+        return;
+      }
+      try {
+        setConnectorBusy(true);
+        setConnectorStatus({ text: "sign in your wallet to revoke…", kind: "" });
+        const signer = await ensureSigner();
+        const issuedAt = Date.now();
+        const signature = await signer.signMessage(connectorMgmtMessage({ action: "revoke", wallet, connectorId: id, issuedAt }));
+        const r = await fetch("/connectors/revoke", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ wallet, connectorId: id, issuedAt, signature }),
+        });
+        const j = (await r.json()) as { ok?: boolean; reason?: string; error?: string };
+        if (!r.ok) throw new Error(j.reason || j.error || "revoke failed");
+        setConnectorStatus({ text: "revoked ✓ — that agent can no longer read or write your vault", kind: "ok" });
+        await refreshConnectors();
+      } catch (e: unknown) {
+        setConnectorStatus({ text: (e as Error)?.message || String(e), kind: "err" });
+      } finally {
+        setConnectorBusy(false);
+      }
+    },
+    [ensureSigner, refreshConnectors],
+  );
+
+  const dismissNewToken = useCallback(() => setNewConnectorToken(null), []);
 
   const ensureGalileo = useCallback(async () => {
     const eth = window.ethereum;
@@ -357,6 +474,13 @@ export function useArca(): ArcaApi {
       window.removeEventListener("focus", onFocus);
     };
   }, [session?.signerAddress, refreshUsage]);
+
+  // Load connected agents once a normal-mode session (with a bearer) exists. OAuth-mode
+  // consent screens have no session token to list against — skip there.
+  useEffect(() => {
+    if (!session?.token) return;
+    void refreshConnectors();
+  }, [session?.token, refreshConnectors]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {
@@ -565,10 +689,17 @@ export function useArca(): ArcaApi {
     saveCount,
     lowBalance,
     signerExplorerUrl: session?.signerAddress ? `${EXPLORER}/address/${session.signerAddress}` : null,
+    connectors,
+    newConnectorToken,
+    connectorBusy,
+    connectorStatus,
     connect,
     sign,
     deposit,
     authorize,
     disconnect,
+    mintConnector,
+    revokeConnector,
+    dismissNewToken,
   };
 }

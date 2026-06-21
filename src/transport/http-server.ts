@@ -30,7 +30,7 @@ import { RemoteMemoryStore } from "../memory/remote-store.js";
 import { OgStorageClient } from "../og/storage.js";
 import { RegistryClient } from "../registry/client.js";
 import { keyedCrypto } from "../wallet/sig-key.js";
-import { createSession, sessionForToken, type UserSession } from "../auth/sessions.js";
+import { createSession, sessionForToken, sessionForWallet, type UserSession } from "../auth/sessions.js";
 import {
   registerClient,
   getClient,
@@ -46,9 +46,28 @@ import {
   checkAuthzNonce,
   startOauthSweep,
   loadClients,
+  revokeFamily,
+  newFamily,
 } from "../auth/oauth.js";
 import { generateBootstrapKeypair, decryptWithPrivkey, type HandoffEnvelope } from "../sandbox/handoff.js";
 import { OG, type MemoryStore } from "../types.js";
+import {
+  loadConnectors,
+  resolveConnector,
+  mintConnector,
+  listConnectors,
+  revokeConnector,
+  revokeAllConnectors,
+  registerOauthConnector,
+  connectorMgmtMessage,
+  verifyMgmtSig,
+} from "../auth/connectors.js";
+
+/** The host of a redirect_uri ("claude.ai") — a friendly fallback label for a web connector. */
+function hostOf(uri: string | undefined): string | null {
+  if (!uri) return null;
+  try { return new URL(uri).host; } catch { return null; }
+}
 
 const PORT = Number(process.env.ARCA_PORT ?? 8787);
 const BEARER = process.env.ARCA_BEARER ?? ""; // optional dev single-user (local key)
@@ -106,12 +125,16 @@ function resolveSessionToken(req: Request): string | null {
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;
 
-  // (1) deterministic per-user session bearer — the bearer IS the session token.
+  // (1a) per-connector token → its wallet's live session (individually revocable;
+  //      resolveConnector returns null the instant it is revoked/expired → 401 next request).
+  if (boundToLiveSession(token)) return token;
+
+  // (1b) legacy deterministic per-user session bearer — the bearer IS the session token.
   if (sessionForToken(token)) return token;
 
-  // (2) OAuth access token → bound sessionToken (audience-locked to our /mcp resource).
-  const boundSessionToken = validateAccessToken(token, resourceOf(req));
-  if (boundSessionToken && sessionForToken(boundSessionToken)) return boundSessionToken;
+  // (2) OAuth access token → its bound (connector or legacy) token, audience-locked to /mcp.
+  const bound = validateAccessToken(token, resourceOf(req));
+  if (bound && (boundToLiveSession(bound) || sessionForToken(bound))) return bound;
 
   // (3) dev/local single-user.
   if (BEARER && token === BEARER) return DEV_LOCAL_TOKEN;
@@ -119,10 +142,20 @@ function resolveSessionToken(req: Request): string | null {
   return null;
 }
 
+/** A connector token is usable iff it is a live (non-revoked, non-expired) row AND its
+ *  wallet has an in-memory session (the key). After a cold restart the session is gone →
+ *  false → 401 until the user re-signs in the dashboard (the persisted row then re-binds). */
+function boundToLiveSession(token: string): boolean {
+  const row = resolveConnector(token);
+  return !!(row && sessionForWallet(row.wallet));
+}
+
 /** Build the store a resolved session token may use (mirrors resolveSessionToken's shapes). */
 function storeForSessionToken(st: string): MemoryStore | null {
   if (st === DEV_LOCAL_TOKEN) return buildStore();
-  const s = sessionForToken(st);
+  // connector token → its wallet's session; else legacy deterministic token → session.
+  const row = resolveConnector(st);
+  const s = row ? sessionForWallet(row.wallet) : sessionForToken(st);
   return s ? buildRemoteStore(s) : null;
 }
 
@@ -491,12 +524,26 @@ app.post("/token", rateLimit, (req, res) => {
       return;
     }
     // Audience is ALWAYS this server's canonical resource — never echoed from client input.
+    // Mint the token family up front so we can bind a per-web-client connector row to it:
+    // that makes the web connection listable + INDIVIDUALLY revocable in the dashboard
+    // (revoking the row kills this family → the client must re-auth), exactly like a CLI token.
+    const family = newFamily();
     const tokens = issueTokens({
       sessionToken: rec.sessionToken,
       client_id,
       resource: canonical,
       scope: rec.scope,
+      family,
     });
+    const oauthWallet = sessionForToken(rec.sessionToken)?.wallet;
+    if (oauthWallet) {
+      registerOauthConnector({
+        wallet: oauthWallet,
+        clientId: client_id,
+        label: getClient(client_id)?.client_name || hostOf(rec.redirect_uri) || "Web connector",
+        family,
+      });
+    }
     res.json(tokens);
     return;
   }
@@ -569,6 +616,59 @@ app.post("/session", rateLimit, async (req, res) => {
     console.error("[/session] error:", err);
     res.status(400).json({ error: "invalid_request" });
   }
+});
+
+// ─── Connector management — granular per-connector tokens (individually revocable) ───
+// Each agent connection gets its OWN opaque token mapping to the wallet's vault, so one can
+// be revoked without touching the others. mint/revoke require a FRESH wallet management
+// signature (EIP-191 text, domain-separated from the key-deriving EIP-712 sig, single-use,
+// 5-min fresh); GET /connectors uses the active bearer (read-only list of labels/status).
+
+app.post("/connectors/mint", rateLimit, (req, res) => {
+  const { wallet, label, issuedAt, signature } = (req.body ?? {}) as {
+    wallet?: string; label?: string; issuedAt?: number; signature?: string;
+  };
+  if (!wallet || !label || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
+  const message = connectorMgmtMessage({ action: "add", wallet, label, issuedAt });
+  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
+  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
+  const { token, row } = mintConnector({ wallet, label, kind: "cli" });
+  res.json({ token, id: row.hash, label: row.label, expiresAt: row.expiresAt });
+});
+
+app.get("/connectors", (req, res) => {
+  const st = resolveSessionToken(req);
+  if (!st || st === DEV_LOCAL_TOKEN) { res.status(401).json({ error: "unauthorized" }); return; }
+  const row = resolveConnector(st);
+  const wallet = row ? row.wallet : sessionForToken(st)?.wallet;
+  if (!wallet) { res.status(401).json({ error: "no_session" }); return; }
+  res.json({ connectors: listConnectors(wallet) });
+});
+
+app.post("/connectors/revoke", rateLimit, (req, res) => {
+  const { wallet, connectorId, issuedAt, signature } = (req.body ?? {}) as {
+    wallet?: string; connectorId?: string; issuedAt?: number; signature?: string;
+  };
+  if (!wallet || !connectorId || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
+  const message = connectorMgmtMessage({ action: "revoke", wallet, connectorId, issuedAt });
+  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
+  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
+  const row = revokeConnector(wallet, connectorId);
+  if (!row) { res.status(404).json({ error: "not_found" }); return; }
+  if (row.kind === "oauth" && row.family) revokeFamily(row.family); // kill the OAuth family too
+  // Also enforced on the very next /mcp request via reauthorized (per-request re-check).
+  res.json({ ok: true });
+});
+
+app.post("/connectors/revoke-all", rateLimit, (req, res) => {
+  const { wallet, issuedAt, signature } = (req.body ?? {}) as { wallet?: string; issuedAt?: number; signature?: string };
+  if (!wallet || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
+  const message = connectorMgmtMessage({ action: "revoke-all", wallet, issuedAt });
+  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
+  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
+  const rows = revokeAllConnectors(wallet);
+  for (const r of rows) if (r.kind === "oauth" && r.family) revokeFamily(r.family);
+  res.json({ ok: true, revoked: rows.length });
 });
 
 // Validate a bearer token — the dashboard calls this on load to restore a cached
@@ -731,6 +831,7 @@ if (!process.env.ARCA_PUBLIC_URL) {
   );
 }
 loadClients(); // restore persisted DCR client registrations — web connectors survive restarts
+loadConnectors(); // restore persisted per-connector token rows (revoke flags survive restarts)
 startOauthSweep(); // periodically prune expired OAuth codes/tokens/nonces (bounds memory)
 app.listen(PORT, process.env.ARCA_HOST ?? "0.0.0.0", () => {
   console.error(`arca MCP (streamable-http, per-user) on ${PUBLIC_URL}${MCP_PATH} · bound ${process.env.ARCA_HOST ?? "0.0.0.0"}:${PORT}`);
