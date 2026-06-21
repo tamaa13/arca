@@ -10,7 +10,7 @@ services:
     container_name: arca
     restart: unless-stopped
     env_file:
-      - ./mainnet.env
+      - ./testnet.env
     environment:
       - ARCA_PORT=8080
       - ARCA_HOST=0.0.0.0
