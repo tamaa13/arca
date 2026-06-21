@@ -612,6 +612,18 @@ function send401(req: Request, res: Response): void {
   res.status(401).json({ error: "unauthorized — present a valid Bearer token (POST /session first)" });
 }
 
+/** Per-request re-check for an already-bound transport. A PRESENT bearer must STILL resolve to
+ *  the same bound session token — so token revocation/expiry take effect mid-session for
+ *  spec-compliant clients that re-send the Authorization header on every request (claude.ai).
+ *  An ABSENT bearer is allowed: the 122-bit Mcp-Session-Id — minted ONLY by a bearer-
+ *  authenticated initialize — authorizes this connection (some clients, e.g. OpenCode, send
+ *  the Authorization header only on initialize). A WRONG/invalid bearer is still rejected. */
+function reauthorized(req: Request, entry: TransportEntry): boolean {
+  const hasBearer = req.headers.authorization?.startsWith("Bearer ") ?? false;
+  if (!hasBearer) return true;
+  return resolveSessionToken(req) === entry.sessionToken;
+}
+
 // Idle sweep: close + delete any transport untouched for IDLE_TIMEOUT_MS (unref'd).
 {
   const t = setInterval(() => {
@@ -679,11 +691,9 @@ app.post(MCP_PATH, async (req: Request, res: Response) => {
     return;
   }
 
-  // Per-request re-validation: the bearer must STILL resolve to the same session token this
-  // transport was bound to. Blocks a leaked/guessed Mcp-Session-Id used with no/another bearer
-  // and makes token revocation/expiry effective mid-session.
-  const sessionToken = resolveSessionToken(req);
-  if (sessionToken !== entry.sessionToken) {
+  // Per-request re-validation (bearer-present → must match for revocation/expiry; bearer-absent
+  // → the bearer-minted session id authorizes the connection; wrong bearer → rejected).
+  if (!reauthorized(req, entry)) {
     send401(req, res);
     return;
   }
@@ -692,7 +702,8 @@ app.post(MCP_PATH, async (req: Request, res: Response) => {
 });
 
 // GET (SSE stream) + DELETE (close) reuse the session's already-bound transport — same
-// per-request bearer re-validation applies (the session id is NOT a standalone credential).
+// per-request re-check applies (a present bearer must match; an absent one rides the
+// bearer-minted session id; a wrong bearer is rejected).
 const bySession = async (req: Request, res: Response) => {
   const sid = req.headers["mcp-session-id"] as string | undefined;
   const entry = sid ? transports[sid] : undefined;
@@ -700,8 +711,7 @@ const bySession = async (req: Request, res: Response) => {
     res.status(400).send("Invalid or missing session id");
     return;
   }
-  const sessionToken = resolveSessionToken(req);
-  if (sessionToken !== entry.sessionToken) {
+  if (!reauthorized(req, entry)) {
     send401(req, res);
     return;
   }
