@@ -1,0 +1,38 @@
+name: build-image
+# Secure CI: a GitHub-hosted runner builds the image + pushes to GHCR.
+# It NEVER touches the VPS — the VPS pulls the image itself (Watchtower). No SSH/secrets to the box.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'dashboard/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'Dockerfile'
+      - '.github/workflows/build-image.yml'
+  workflow_dispatch:
+concurrency:
+  group: build-image
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest          # GitHub-hosted runner
+    permissions:
+      contents: read
+      packages: write               # push to GHCR via the built-in GITHUB_TOKEN (no extra secret)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/tamaa13/arca:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
