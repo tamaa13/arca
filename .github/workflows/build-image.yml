@@ -33,6 +33,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/tamaa13/arca:latest
+          tags: ghcr.io/tamaa13/arca-mcp:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

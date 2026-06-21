@@ -6,7 +6,7 @@
 #   tailscale sidecar via depends-on). label-scoped → only touches OUR containers (never Chris's).
 services:
   arca:
-    image: ghcr.io/tamaa13/arca:latest
+    image: ghcr.io/tamaa13/arca-mcp:latest
     container_name: arca
     restart: unless-stopped
     env_file:
