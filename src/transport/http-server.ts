@@ -229,7 +229,9 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, name: "arca", transport: "streamable-http", registry: OG.registry, chainId: OG.chainId });
 });
 
-// Enclave bootstrap pubkey — the dashboard encrypts the signature to this (operator-blind).
+// Bootstrap pubkey for the ECIES handoff. NOTE: generated in THIS process (not a TEE),
+// so the envelope only blinds a passive relay — true operator-blind needs the not-yet-live
+// sealed deploy. See the file header (:18) and src/sandbox/handoff.ts.
 app.get("/bootstrap/pubkey", (_req, res) => {
   res.json({ pubkey: BOOTSTRAP.pubkeyHexCompressed, scheme: "arca-sandbox-handoff-v1" });
 });

@@ -83,7 +83,7 @@ await client.deleteSandbox(sealed.id).then(() => console.log("  (sealed sandbox 
 
 console.log(
   blind
-    ? "\n✅ 0G SANDBOX PROOF PASS — Arca provisions a SEALED TDX-TEE container (operator-blind), 0G-native, deposit-funded"
+    ? "\n✅ 0G SANDBOX SEALING-PRIMITIVE PASS — a sealed TDX container denies external exec. NOTE: this is an EMPTY base snapshot, NOT the Arca MCP; the MCP is NOT running operator-blind (custom-image deploy is admin-only)."
     : "\n⚠ provisioned but sealing unconfirmed",
 );
 process.exit(blind ? 0 : 1);

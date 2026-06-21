@@ -51,6 +51,8 @@ const MAINNET_ENV: Record<string, string> = {
   ARCA_RPC: "https://evmrpc.0g.ai",
   ARCA_INDEXER: "https://indexer-storage-turbo.0g.ai",
   ARCA_CHAIN_ID: "16661",
+  // v1 self-anchor registry (this CLI uses the local-key/self-anchor model). The v2
+  // owner-mapping registry is 0xbf97… (mainnet) — see src/types.ts / deploy/mainnet.env.
   ARCA_REGISTRY_ADDR: "0x746Cb7B6eC8521262b01E2788188fC475f95216e",
 };
 

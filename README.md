@@ -1,8 +1,10 @@
 # Arca
 
-**User-owned, cross-agent persistent memory on 0G.** Your AI agents (Claude Code, Codex, Cursor) save and recall memory through one local MCP server. Every memory is encrypted to *your* key and stored on 0G — append-only, pay-once, **un-ruggable**. Nobody, not even the operator, can delete it. You hold the key.
+**User-owned, cross-agent persistent memory on 0G.** Your AI agents (Claude Code, Codex, Cursor) save and recall memory through one local MCP server. Every memory is encrypted to *your* key and stored on 0G — append-only, pay-once. The on-chain root index is **un-ruggable** (no operator can rewrite or delete it); the encrypted blobs live on 0G Storage. You hold the key.
 
 > *arca* — Latin for "ark / chest" — a vault you own for your memory.
+
+> **Scope:** this README covers Arca **v1** (local MCP, local key file). The **v2** product — one *remote* MCP, key derived from your wallet signature (no local key file), multi-platform, OAuth — is in [`BUILD_PLAN_v2.md`](BUILD_PLAN_v2.md).
 
 ## Why
 
@@ -36,6 +38,8 @@ The plaintext **only** ever exists on 0G, encrypted. The local index holds point
 |---|---|---|
 | ArcaRegistry | 0G Mainnet (Aristotle, 16661) | `0x746Cb7B6eC8521262b01E2788188fC475f95216e` |
 | ArcaRegistry | 0G Galileo testnet (16602) | `0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD` |
+
+These are the **v1 self-anchor** registries. The **v2 owner-mapping** registries (used by the remote product) are `0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540` (mainnet) and `0xc196C28886c93462f55A78134b5bF6118A3f5860` (testnet).
 
 Full hero loop proven end-to-end on testnet (encrypt → storage → anchor → recall → decrypt → match). On mainnet, encrypt + Flow-submit + registry anchor/recover are proven; storage read-back finalizes automatically once 0G storage sync catches up.
 

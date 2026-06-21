@@ -28,7 +28,7 @@ export interface OgStorage {
 
 /** Client-side encryption — implemented in src/og/crypto.ts */
 export interface Crypto {
-  /** Encrypt plaintext to the user's key (ECIES/AES). */
+  /** Encrypt plaintext to the user's key (AES-256-GCM; key = SHA-256(privKey)). */
   encrypt(plaintext: Uint8Array, privKeyHex: string): Promise<Uint8Array> | Uint8Array;
   /** Decrypt ciphertext with the user's key. */
   decrypt(ciphertext: Uint8Array, privKeyHex: string): Promise<Uint8Array> | Uint8Array;
@@ -71,10 +71,10 @@ export const OG = {
   rpc: process.env.ARCA_RPC ?? "https://evmrpc.0g.ai",
   indexer: process.env.ARCA_INDEXER ?? "https://indexer-storage-turbo.0g.ai",
   flowContract: "0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526",
-  /** ArcaRegistry — defaults to the MAINNET deployment so a published install works
-   *  out of the box; env ARCA_REGISTRY_ADDR overrides (the --testnet flow points it
-   *  at the Galileo testnet registry). */
+  /** ArcaRegistry — defaults to the v2 owner-mapping MAINNET deployment (0xbf97…) so a
+   *  published v2 install works out of the box; env ARCA_REGISTRY_ADDR overrides (deploy
+   *  envs set testnet v2 0xc196…). The v1 self-anchor registry was 0x746C…. */
   registry:
     process.env.ARCA_REGISTRY_ADDR ??
-    "0x746Cb7B6eC8521262b01E2788188fC475f95216e",
+    "0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540",
 } as const;

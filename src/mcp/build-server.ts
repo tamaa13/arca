@@ -3,8 +3,10 @@
  * Shared by the stdio entrypoint (server.ts) and the remote HTTP transport
  * (../transport/http-server.ts) so the tool logic lives in exactly one place.
  *
- * Phase 1a: the store is wired over a LOCAL key (FileKeyManager) — this is the
- * transport-proof milestone. Wallet-derived keys + per-user sessions land in 1b.
+ * NOTE: buildStore() below wires a LOCAL key (FileKeyManager) and is now only the DEV
+ * fallback (ARCA_BEARER / DEV_LOCAL_TOKEN). The shipped product path is the remote HTTP
+ * transport, which builds a per-user RemoteMemoryStore over the wallet-signature-derived
+ * key (createSession) — see src/transport/http-server.ts.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";

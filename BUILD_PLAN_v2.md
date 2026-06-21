@@ -6,9 +6,10 @@
 ## What Arca is
 User-owned, cross-agent **personal** memory on 0G. One remote MCP that every AI agent
 connects to; memory is encrypted to a key **derived from the user's own wallet**, stored
-on 0G Storage, anchored on 0G Chain (`ArcaRegistry`), and processed inside a **confidential
-enclave (TEE)** so the operator can't read it. No inter-user sharing (cut). No inference at
-save/recall.
+on 0G Storage, anchored on 0G Chain (`ArcaRegistry`), and (PLANNED) processed inside a
+**confidential enclave (TEE)** so the operator can't read it. ⚠️ The TEE is NOT live yet —
+today the key is derived in the normal server process (see Progress / 1c). No inter-user
+sharing (cut). No inference at save/recall.
 
 ## Decisions (locked)
 - **Transport: remote only.** No local stdio. One hosted MCP over **Streamable HTTP** (SSE
@@ -37,9 +38,10 @@ agents (Claude/ChatGPT/Cursor/Copilot/Codex/OpenCode/Antigravity)
    ▲  fallback: wallet → 0G directly (recover without the service) → un-ruggable holds
 ```
 
-## Who can read (honest)
-You ✅ (wallet) · operator ❌ (TEE-attested) · 0G ❌ (encrypted) · agent provider ⚠️ sees
-plaintext transiently (unavoidable for any agent memory tool).
+## Who can read (honest — current live state)
+You ✅ (wallet) · operator ⚠️ **CAN today** (key derived in-process; TEE/operator-blind is
+1c, NOT live) · 0G ❌ (encrypted) · agent provider ⚠️ sees plaintext transiently (unavoidable
+for any agent memory tool).
 
 ## Phase 1 — sub-phases (each shippable, de-risks one thing)
 The memory engine (encrypt → 0G → registry → recall) is **already built + mainnet-proven**.

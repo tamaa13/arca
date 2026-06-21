@@ -14,7 +14,7 @@ export function DepositStep({ arca }: { arca: ArcaApi }) {
     <StepCard
       n={3}
       title="Deposit storage"
-      description="Fund the session-signer with a little 0G. It pays gas + storage for your saves so your wallet never signs per memory. Withdrawable anytime — it's yours."
+      description="Fund the session-signer with a little 0G — it pays gas + storage for your saves so your wallet never signs per memory. The signer is derived from your signature, so only you can re-derive it."
       on={arca.step3On}
       done={arca.step3Done}
     >

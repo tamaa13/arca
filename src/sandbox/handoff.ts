@@ -4,10 +4,12 @@
  * noble → ethers SigningKey so the SAME code runs in the browser dashboard and the
  * Node/bun container).
  *
- * Use in Arca: the sealed container generates a bootstrap keypair and exposes its
- * pubkey (+ TDX attestation). The dashboard ECIES-encrypts the user's EIP-712
- * signature to that pubkey and POSTs the envelope to /session; only inside the
- * enclave is it decrypted and the memory key derived. The relay sees ciphertext.
+ * Use in Arca (DESIGN — sealed mode is NOT live yet): a sealed container would
+ * generate a bootstrap keypair and expose its pubkey (TDX attestation is NOT
+ * implemented/verified yet). The dashboard ECIES-encrypts the user's EIP-712
+ * signature to that pubkey and POSTs the envelope to /session. TODAY that decrypt
+ * runs IN THE NORMAL OPERATOR PROCESS (not an enclave) — so the envelope only
+ * blinds a passive relay, NOT the operator. The relay sees ciphertext.
  *
  *   shared = ECDH(eph, recipient).x            (32-byte x-coordinate)
  *   aeadKey = HKDF-SHA256(shared, salt=ephPub, info="arca-sandbox-handoff-v1")

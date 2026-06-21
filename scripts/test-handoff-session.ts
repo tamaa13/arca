@@ -49,7 +49,7 @@ try {
   console.log("tampered envelope rejected:", tamperRejected, `(http ${r2.status})`);
 
   const pass = blindOk && tamperRejected;
-  console.log(pass ? "\n✅ OPERATOR-BLIND /session PASS — signature delivered encrypted, decrypted only in-enclave" : "\n❌ FAIL");
+  console.log(pass ? "\n✅ ECIES HANDOFF /session PASS — envelope delivered + decrypted in-process (proves the handoff crypto; NOT operator-blind: the decrypt runs in the operator process, not an enclave)" : "\n❌ FAIL");
   done(pass ? 0 : 1);
 } catch (e) {
   console.error("✗", e instanceof Error ? e.message : e);

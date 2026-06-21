@@ -300,9 +300,10 @@ export function useArca(): ArcaApi {
     }
   }, [ensureGalileo, enable, markDone, setStatus]);
 
-  // Build the auth body: {wallet, signature} OR, if the server (sealed enclave) exposes
-  // a bootstrap pubkey, {wallet, envelope} with the signature ECIES-encrypted to it so the
-  // relay never sees it. Identical for the /session and /authorize/approve flows.
+  // Build the auth body: {wallet, signature} OR, if the server exposes a bootstrap pubkey,
+  // {wallet, envelope} with the signature ECIES-encrypted to it. NOTE: the live server
+  // decrypts in-process (not a sealed enclave), so the envelope only hides the signature
+  // from a passive relay — NOT from the operator. Identical for /session and /authorize/approve.
   const buildAuthBody = useCallback(async (signature: string): Promise<Record<string, unknown>> => {
     let body: Record<string, unknown> = { wallet: accountRef.current, signature };
     try {

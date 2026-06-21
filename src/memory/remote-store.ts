@@ -66,11 +66,10 @@ export class RemoteMemoryStore implements MemoryStore {
     record.rootHash = rootHash;
 
     // Anchor-first under the OWNER (wallet), signed by the delegate session-signer.
-    try {
-      await this.registry.addRootFor(this.owner, rootHash);
-    } catch {
-      /* registry hiccup — the upload still lands; a retry can re-anchor */
-    }
+    // recall() is registry-only, so the anchor is what makes a save recoverable — a
+    // failed anchor MUST surface (retry transient hiccups, then throw) instead of
+    // silently orphaning an unrecoverable blob.
+    await this.anchorWithRetry(rootHash);
 
     const upload = this.storage.putBlob(ciphertext);
     if (opts?.blockUpload) {
@@ -89,6 +88,22 @@ export class RemoteMemoryStore implements MemoryStore {
       /* slow/stalled — returns pending; upload continues in the background */
     }
     return record;
+  }
+
+  /** Anchor with bounded retry; throw on persistent failure so a save never
+   *  reports success without a recoverable on-chain root. */
+  private async anchorWithRetry(rootHash: string, attempts = 3): Promise<void> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await this.registry.addRootFor(this.owner, rootHash);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+      }
+    }
+    throw new Error(`anchor failed after ${attempts} attempts: ${(lastErr as Error)?.message ?? String(lastErr)}`);
   }
 
   /** Registry-only recall: getRoots(wallet) → getBlob → decrypt. Newest-first. */

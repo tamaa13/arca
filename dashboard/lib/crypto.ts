@@ -1,5 +1,6 @@
-// Option-3 ECIES — encrypt the signature to the enclave bootstrap pubkey, browser-side
-// (Web Crypto). Matches src/sandbox/handoff.ts (node) so a sealed container decrypts it:
+// Option-3 ECIES — encrypt the signature to the server's bootstrap pubkey, browser-side
+// (Web Crypto). Matches src/sandbox/handoff.ts (node). NOTE: the live server decrypts
+// in-process (not a sealed enclave) — this only blinds a passive relay, not the operator:
 //   shared = ECDH(eph, recipient).x
 //   aeadKey = HKDF-SHA256(shared, salt=ephPub, info="arca-sandbox-handoff-v1")
 //   AES-256-GCM(aeadKey, iv, plaintext)

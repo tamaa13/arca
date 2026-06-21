@@ -1,6 +1,7 @@
 /**
- * Deploy the Arca MCP into a SEALED 0G Sandbox (TDX) container — the operator-blind
- * production host. Orchestrates: acknowledge + deposit → createSandbox(custom image,
+ * Deploy the Arca MCP into a SEALED 0G Sandbox (TDX) container — the INTENDED operator-blind
+ * host. ⚠️ NOT working: custom-image deploy is admin-only (POST /api/snapshots → 403), so this
+ * has never actually run the MCP in an enclave. Orchestrates: acknowledge + deposit → createSandbox(custom image,
  * sealed) → poll the inbound endpoint /health → print the connector URL.
  *
  * Prereqs (need your accounts/funds — flagged, not done here):
@@ -69,5 +70,5 @@ for (let i = 0; i < 150; i++) {
 console.log(healthy ? "✓ MCP healthy" : "⚠ not healthy yet — check `bun -e` getSandbox / image pull logs");
 console.log(`\nDashboard : ${endpoint}/`);
 console.log(`Connector : ${endpoint}/mcp   (agents use this URL + their token from /session)`);
-console.log(healthy ? "\n✅ ARCA DEPLOYED to a sealed 0G Sandbox (operator-blind)" : "\n⚠ deployed; awaiting health");
+console.log(healthy ? "\n✅ MCP HEALTHY in a sealed 0G Sandbox. NOTE: custom-image deploy is admin-only (403) — operator-blind is UNVERIFIED until TDX attestation is checked." : "\n⚠ not up (custom-image deploy is admin-only — expected until 0G onboards the image)");
 process.exit(healthy ? 0 : 1);
