@@ -166,7 +166,16 @@ export function useArca(): ArcaApi {
           enable(4);
           setDepositEnabled(true);
           setDelegateEnabled(true);
-          setStatus("st3", `funded ✓ (${formatEther(bal)} 0G) — on-chain, any device`, "ok");
+          // ~0.0005 0G per save → warn under 0.01 0G (~20 saves) so the user tops up
+          // BEFORE the signer runs out of gas and saves start failing.
+          const low = bal < parseEther("0.01");
+          setStatus(
+            "st3",
+            low
+              ? `⚠ deposit LOW: ${formatEther(bal)} 0G left — top up soon or new saves will fail`
+              : `funded ✓ (${formatEther(bal)} 0G remaining) — on-chain, any device`,
+            low ? "err" : "ok",
+          );
         }
       } catch {
         /* ignore */
@@ -220,7 +229,28 @@ export function useArca(): ArcaApi {
     try {
       const r = await fetch("/session", { headers: { Authorization: "Bearer " + saved.token } });
       if (!r.ok) {
+        // Server session gone (restart/redeploy/TTL). The memory key lives only in RAM and
+        // is never persisted (so the operator can't read it) → a re-sign re-derives it.
+        // Don't reset to step 1: keep the wallet connected and offer a ONE-CLICK re-sign.
+        // Deposit + authorization are on-chain and reflect as done after signing.
         localStorage.removeItem(LS_KEY);
+        try {
+          const accts = await window.ethereum?.request<string[]>({ method: "eth_accounts" });
+          const acct = accts?.[0];
+          if (acct && window.ethereum) {
+            providerRef.current = new BrowserProvider(window.ethereum);
+            signerRef.current = await providerRef.current.getSigner();
+            accountRef.current = acct;
+            setAccount(acct);
+            markDone(1);
+            enable(2);
+            setSignEnabled(true);
+            setStatus("st1", `connected as ${short(acct)} ✓`, "ok");
+            setStatus("st2", "session expired — sign once to unlock (your deposit + authorization are preserved)", "");
+          }
+        } catch {
+          /* wallet unavailable — fall through to the fresh connect flow */
+        }
         setReady(true);
         return;
       }

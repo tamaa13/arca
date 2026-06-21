@@ -103,7 +103,14 @@ export class RemoteMemoryStore implements MemoryStore {
         if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
       }
     }
-    throw new Error(`anchor failed after ${attempts} attempts: ${(lastErr as Error)?.message ?? String(lastErr)}`);
+    const msg = (lastErr as Error)?.message ?? String(lastErr);
+    if (/insufficient funds|INSUFFICIENT_FUNDS/i.test(msg)) {
+      throw new Error(
+        "Arca storage deposit empty — the session signer is out of gas. Top up a little 0G " +
+          "in the Arca dashboard to keep saving. Your existing memories are safe and recallable.",
+      );
+    }
+    throw new Error(`anchor failed after ${attempts} attempts: ${msg}`);
   }
 
   /** Registry-only recall: getRoots(wallet) → getBlob → decrypt. Newest-first. */
