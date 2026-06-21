@@ -1,0 +1,46 @@
+# Arca — rootless deploy with a PERMANENT URL via Tailscale Funnel.
+#   TS_AUTHKEY=tskey-auth-... docker compose -f deploy/docker-compose.tailscale.yml up -d --build
+# - arca: MCP server, no published host port.
+# - tailscale: userspace (rootless, no tun/NET_ADMIN), Funnel proxies https://arca.<tailnet>.ts.net → arca:8080.
+# Stable URL (survives restarts/reboots), no custom domain, no interstitial. TS_AUTHKEY passed at runtime (not committed).
+services:
+  arca:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: arca:local
+    container_name: arca
+    restart: unless-stopped
+    env_file:
+      - ./testnet.env
+    environment:
+      - ARCA_PORT=8080
+      - ARCA_HOST=0.0.0.0
+    expose:
+      - "8080"
+    mem_limit: 512m
+    cpus: 1.0
+    networks: [arcanet]
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: arca-ts
+    hostname: arca
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:?set TS_AUTHKEY}
+      - TS_HOSTNAME=arca           # → https://arca.<your-tailnet>.ts.net
+      - TS_USERSPACE=true          # rootless: no /dev/net/tun, no NET_ADMIN
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/funnel.json
+    volumes:
+      - ./tailscale-funnel.json:/config/funnel.json:ro
+      - arca-ts-state:/var/lib/tailscale
+    depends_on: [arca]
+    mem_limit: 128m
+    cpus: 0.5
+    networks: [arcanet]
+networks:
+  arcanet:
+    driver: bridge
+volumes:
+  arca-ts-state:
