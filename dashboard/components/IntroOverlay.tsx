@@ -159,12 +159,28 @@ function Choose({
             onClick={() => setSoundChoice(!soundChoice)}
             aria-pressed={soundChoice}
             aria-label="Toggle ambient sound"
-            className="relative inline-flex h-[20px] w-9 items-center transition-colors duration-200"
-            style={{ borderRadius: 9999, border: "none", background: soundChoice ? "var(--color-accent)" : "var(--color-border-strong)" }}
+            className="relative inline-block shrink-0 transition-colors duration-200"
+            // padding:0 + explicit geometry so the global `button{padding:12px 22px}` can't
+            // shove the absolute knob past the track edge.
+            style={{
+              width: 40,
+              height: 22,
+              padding: 0,
+              border: "none",
+              borderRadius: 9999,
+              background: soundChoice ? "var(--color-accent)" : "var(--color-border-strong)",
+            }}
           >
             <span
-              className="absolute h-4 w-4 bg-white transition-transform duration-200"
-              style={{ borderRadius: 9999, transform: soundChoice ? "translateX(17px)" : "translateX(3px)" }}
+              className="absolute bg-white transition-transform duration-200"
+              style={{
+                top: 3,
+                left: 3,
+                width: 16,
+                height: 16,
+                borderRadius: 9999,
+                transform: soundChoice ? "translateX(18px)" : "translateX(0)",
+              }}
             />
           </button>
         </div>
