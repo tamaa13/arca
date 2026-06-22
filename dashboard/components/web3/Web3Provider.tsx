@@ -13,16 +13,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import { zgMainnet, zgTestnet } from "@/lib/chains";
+import { APP_CHAIN } from "@/lib/chains";
 
 // WalletConnect Cloud projectId (public — safe to ship; it's domain-allowlisted, not a secret).
 // Enables the mobile/WC wallet list; env override wins if set.
 const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "8587a9582464416581ee66bc24063ac9";
 
+// Only the configured chain — users connect on the network this deployment runs (no switcher).
 const config = getDefaultConfig({
   appName: "Arca",
   projectId: WC_PROJECT_ID,
-  chains: [zgTestnet, zgMainnet],
+  chains: [APP_CHAIN],
   ssr: false,
   // injectedWallet ("Browser Wallet") connects via the raw window.ethereum — covers Rabby/
   // Brave/any injected and is the most universal option.
@@ -50,7 +51,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider initialChain={zgTestnet} theme={rkTheme} modalSize="compact">
+        <RainbowKitProvider initialChain={APP_CHAIN} theme={rkTheme} modalSize="compact">
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

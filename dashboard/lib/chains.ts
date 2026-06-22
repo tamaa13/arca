@@ -20,5 +20,9 @@ export const zgMainnet = defineChain({
   blockExplorers: { default: { name: "0G Scan", url: "https://chainscan.0g.ai" } },
 });
 
-// The chain Arca's app logic targets (registry reads/writes) — testnet for now.
-export const APP_CHAIN = zgTestnet;
+// The single chain this deployment runs on — auto-detected from the build env so the dashboard
+// matches whatever network the server serves. Testnet today; set NEXT_PUBLIC_ARCA_CHAIN_ID=16661
+// when the server migrates to mainnet and the dashboard follows automatically. Users never pick a
+// network — they connect on this one (RainbowKit prompts a switch if their wallet is elsewhere).
+const CONFIGURED_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ARCA_CHAIN_ID ?? "16602");
+export const APP_CHAIN = CONFIGURED_CHAIN_ID === zgMainnet.id ? zgMainnet : zgTestnet;

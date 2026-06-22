@@ -124,7 +124,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
         </div>
       )}
 
-      {/* connected agents list */}
+      {/* connected agents — Active / Revoked tabs + pagination */}
       {arca.connectors == null ? (
         <p className="note" style={{ marginTop: 16 }}>loading…</p>
       ) : list.length === 0 ? (
@@ -132,50 +132,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
           No agents connected yet — connect one above (sign-in or token).
         </p>
       ) : (
-        <div style={{ marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 4 }}>
-          {list.map((c) => {
-            const st = statusOf(c);
-            return (
-              <div
-                key={c.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: "10px 0",
-                  borderBottom: "1px solid var(--line)",
-                  opacity: c.revoked ? 0.55 : 1,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 500, fontSize: 14, wordBreak: "break-word" }}>{c.label}</span>
-                    <span
-                      className="mono"
-                      style={{ fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)", border: "1px solid var(--line-strong)", padding: "1px 5px" }}
-                    >
-                      {c.kind === "oauth" ? "Sign-in" : "Token"}
-                    </span>
-                  </div>
-                  <div className="mono" style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
-                    added {fmtDate(c.createdAt)} · <span style={{ color: st.color }}>{st.text}</span>
-                  </div>
-                </div>
-                {!c.revoked && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => onRevoke(c)}
-                    disabled={arca.connectorBusy}
-                    style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0 }}
-                  >
-                    Revoke
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <ConnectorList list={list} onRevoke={onRevoke} busy={arca.connectorBusy} />
       )}
 
       {arca.connectorStatus.text && (
@@ -186,5 +143,109 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
         Your memory is recoverable directly from 0G with your wallet, even without Arca.
       </p>
     </section>
+  );
+}
+
+const PER_PAGE = 5;
+
+// Active / Revoked tabs + pagination so a wallet with many tokens stays compact.
+function ConnectorList({
+  list,
+  onRevoke,
+  busy,
+}: {
+  list: ConnectorListing[];
+  onRevoke: (c: ConnectorListing) => void;
+  busy: boolean;
+}) {
+  const [view, setView] = useState<"active" | "revoked">("active");
+  const [page, setPage] = useState(0);
+
+  const active = list.filter((c) => !c.revoked);
+  const revoked = list.filter((c) => c.revoked);
+  const shown = view === "active" ? active : revoked;
+  const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+  const p = Math.min(page, pages - 1);
+  const items = shown.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
+
+  const select = (v: "active" | "revoked") => {
+    setView(v);
+    setPage(0);
+  };
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div className="tabs" style={{ marginTop: 0 }}>
+        <button className={view === "active" ? "active" : ""} onClick={() => select("active")}>
+          Active · {active.length}
+        </button>
+        <button className={view === "revoked" ? "active" : ""} onClick={() => select("revoked")}>
+          Revoked · {revoked.length}
+        </button>
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="note" style={{ marginTop: 14 }}>
+          {view === "active" ? "No active agents." : "No revoked agents yet."}
+        </p>
+      ) : (
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--line)" }}>
+          {items.map((c) => (
+            <ConnectorRow key={c.id} c={c} onRevoke={onRevoke} busy={busy} />
+          ))}
+        </div>
+      )}
+
+      {pages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+          <button className="copy" disabled={p === 0} onClick={() => setPage(p - 1)}>
+            ← prev
+          </button>
+          <span className="mono" style={{ fontSize: 10, letterSpacing: ".12em", color: "var(--muted)" }}>
+            {p + 1} / {pages}
+          </span>
+          <button className="copy" disabled={p >= pages - 1} onClick={() => setPage(p + 1)}>
+            next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConnectorRow({ c, onRevoke, busy }: { c: ConnectorListing; onRevoke: (c: ConnectorListing) => void; busy: boolean }) {
+  const st = statusOf(c);
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "11px 0",
+        borderBottom: "1px solid var(--line)",
+        opacity: c.revoked ? 0.6 : 1,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 500, fontSize: 14, wordBreak: "break-word" }}>{c.label}</span>
+          <span
+            className="mono"
+            style={{ fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)", border: "1px solid var(--line-strong)", padding: "1px 6px", borderRadius: 9999 }}
+          >
+            {c.kind === "oauth" ? "Sign-in" : "Token"}
+          </span>
+        </div>
+        <div className="mono" style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
+          added {fmtDate(c.createdAt)} · <span style={{ color: st.color }}>{st.text}</span>
+        </div>
+      </div>
+      {!c.revoked && (
+        <Button variant="ghost" onClick={() => onRevoke(c)} disabled={busy} style={{ padding: "8px 16px", fontSize: 12, flexShrink: 0 }}>
+          Revoke
+        </Button>
+      )}
+    </div>
   );
 }

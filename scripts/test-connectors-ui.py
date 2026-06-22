@@ -175,16 +175,24 @@ def main():
         ok(page.get_by_text("arca_live_NEWTOKEN_1", exact=False).count() == 0, "token hidden after Done")
 
         # Revoke the CLI connector — find its row's Revoke button (first row = newest = CLI).
-        revoke_btns = page.get_by_role("button", name="Revoke")
+        revoke_btns = page.get_by_role("button", name="Revoke", exact=True)
         ok(revoke_btns.count() == 2, "two Revoke buttons (both active) before revoke")
         revoke_btns.first.click()
         page.wait_for_timeout(700)
 
-        # The CLI row flips to Revoked; the web row stays Active (selective).
-        ok(page.get_by_text("Revoked", exact=True).count() == 1, "exactly one connector now Revoked")
+        # The CLI leaves the Active tab; the web row stays Active (selective).
         ok(page.get_by_text("Active", exact=True).count() == 1, "the web connector stays Active (selective ✓)")
-        ok(page.get_by_role("button", name="Revoke").count() == 1, "only the web connector still revocable (selective ✓)")
+        ok(page.get_by_role("button", name="Revoke", exact=True).count() == 1, "only the web connector still revocable (selective ✓)")
         ok(page.get_by_text("revoked ✓", exact=False).count() > 0, "revoke success status shown")
+
+        # Revoked tokens move to their own tab (kept out of the active list, paginated).
+        page.get_by_role("button", name="Revoked").first.click()
+        page.wait_for_timeout(300)
+        ok(page.get_by_text("Codex-laptop", exact=True).count() > 0, "revoked connector appears under the Revoked tab")
+        ok(page.get_by_text("Revoked", exact=True).count() == 1, "revoked connector shows Revoked status in its tab")
+        ok(page.get_by_role("button", name="Revoke", exact=True).count() == 0, "no Revoke button on revoked items")
+        page.get_by_role("button", name="Active").first.click()  # back to Active for the platform-tab checks
+        page.wait_for_timeout(200)
 
         # ChatGPT has its OWN tab → sign-in tutorial (custom connector, no token) + honesty caption.
         page.get_by_role("button", name="ChatGPT", exact=True).click()
