@@ -3,6 +3,7 @@ import { Hero } from "@/components/hero/Hero";
 import { ValueProp } from "@/components/landing/ValueProp";
 import { Claims } from "@/components/landing/Claims";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { Footer } from "@/components/landing/Footer";
 
 // Marketing landing — hero → statement → why (features) → how it works → CTA → footer.
 // The functional dashboard lives separately at /app.
@@ -40,18 +41,5 @@ function ClosingCta() {
         </a>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="relative z-10 mx-auto flex w-full max-w-[var(--container-wrap)] flex-col gap-2 px-6 py-10 font-mono-x text-[11px] text-[var(--color-ink-3)] sm:flex-row sm:items-center sm:justify-between sm:px-8">
-      <span>arca · user-owned memory on 0G</span>
-      <span className="flex gap-5">
-        <a href="/app" className="transition-colors hover:text-[var(--color-ink)]">app</a>
-        <a href="/docs" className="transition-colors hover:text-[var(--color-ink)]">docs</a>
-        <span>0G Galileo · testnet</span>
-      </span>
-    </footer>
   );
 }

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
+import { Parallax } from "@/components/Parallax";
 import { OsScene } from "./os/OsScene";
 
 const lineVariants = {
@@ -112,7 +113,9 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.9, ease: EASE }}
         className="mx-auto mt-12 w-full px-2 pb-4 sm:mt-14"
       >
-        <OsScene />
+        <Parallax speed={56}>
+          <OsScene />
+        </Parallax>
       </motion.div>
     </section>
   );

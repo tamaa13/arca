@@ -8,6 +8,7 @@ import { ActivateStep } from "@/components/organisms/ActivateStep";
 import { ApproveStep } from "@/components/organisms/ApproveStep";
 import { UsagePanel } from "@/components/organisms/UsagePanel";
 import { YourAgentsPanel } from "@/components/organisms/YourAgentsPanel";
+import { Footer } from "@/components/landing/Footer";
 
 // The functional app — connect wallet · sign · activate · connect agents (and the
 // OAuth consent flow). Lives at /app and at /authorize; the landing is separate.
@@ -17,9 +18,9 @@ export function AppDashboard() {
   const isOAuth = !!arca.oauth;
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <div className="wrap" id="connect" style={{ paddingTop: 92 }}>
+      <div className="wrap flex-1" id="connect" style={{ paddingTop: 92 }}>
         <h1>{isOAuth ? "Connect your memory." : "Open your memory."}</h1>
         <p className="lede">
           {isOAuth ? (
@@ -58,6 +59,7 @@ export function AppDashboard() {
           0G Galileo testnet · registry <span className="mono">{registry}</span>
         </div>
       </div>
-    </>
+      <Footer />
+    </div>
   );
 }
