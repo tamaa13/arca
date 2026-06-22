@@ -42,13 +42,7 @@ export function Navbar() {
             { href: "/#why", label: "why arca" },
             { href: "/docs", label: "docs" },
           ].map((l) => (
-            <Link
-              key={l.label}
-              href={l.href}
-              className="font-mono-x text-[12px] tracking-[0.02em] text-[var(--color-ink-2)] transition-colors hover:text-[var(--color-ink)]"
-            >
-              {l.label}
-            </Link>
+            <NavItem key={l.label} href={l.href} label={l.label} />
           ))}
         </nav>
 
@@ -64,5 +58,33 @@ export function Navbar() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Center nav item: same-page section links smooth-scroll via Lenis WITHOUT putting a
+// `#` in the URL (no glitchy jump); cross-page links fall through to <Link>.
+function NavItem({ href, label }: { href: string; label: string }) {
+  const onClick = (e: React.MouseEvent) => {
+    const hashIdx = href.indexOf("#");
+    if (hashIdx === -1 || typeof window === "undefined") return;
+    const path = href.slice(0, hashIdx) || "/";
+    const id = href.slice(hashIdx + 1);
+    const onLanding = window.location.pathname === "/" || window.location.pathname === "/index.html";
+    if (path !== "/" || !onLanding) return; // different page → let Link navigate
+    const el = document.getElementById(id);
+    if (!el) return;
+    e.preventDefault();
+    const lenis = window.__lenis;
+    if (lenis) lenis.scrollTo(el, { offset: -72, duration: 1.2 });
+    else el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="font-mono-x text-[12px] tracking-[0.02em] text-[var(--color-ink-2)] transition-colors hover:text-[var(--color-ink)]"
+    >
+      {label}
+    </Link>
   );
 }
