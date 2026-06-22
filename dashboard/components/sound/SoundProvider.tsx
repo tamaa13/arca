@@ -49,14 +49,56 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    if (soundOn) {
-      ensureGraph();
-      ctxRef.current?.resume().catch(() => {});
-      a.volume = 0.3;
-      a.play().catch(() => {});
-    } else {
+    if (!soundOn) {
       a.pause();
+      return;
     }
+
+    let disposed = false;
+    let detach: (() => void) | null = null;
+
+    const start = async () => {
+      ensureGraph();
+      try {
+        await ctxRef.current?.resume();
+      } catch {
+        /* ignore */
+      }
+      a.volume = 0.3;
+      try {
+        await a.play();
+      } catch {
+        // Autoplay blocked: after a hard refresh the toggle is restored to ON from localStorage,
+        // but the browser won't let audio start without a user gesture (and the AudioContext is
+        // suspended). Arm the first interaction to start it, then detach.
+        if (disposed) return;
+        const onGesture = async () => {
+          try {
+            await ctxRef.current?.resume();
+          } catch {
+            /* ignore */
+          }
+          try {
+            await a.play();
+          } catch {
+            /* ignore */
+          }
+          detach?.();
+        };
+        const events: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "touchstart"];
+        events.forEach((e) => window.addEventListener(e, onGesture, { once: false }));
+        detach = () => {
+          events.forEach((e) => window.removeEventListener(e, onGesture));
+          detach = null;
+        };
+      }
+    };
+    void start();
+
+    return () => {
+      disposed = true;
+      detach?.();
+    };
   }, [soundOn, ensureGraph]);
 
   const setSoundOn = useCallback(

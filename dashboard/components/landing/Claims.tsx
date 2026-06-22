@@ -1,7 +1,7 @@
 "use client";
 
 import { Reveal } from "@/components/Reveal";
-import { ParallaxCard } from "@/components/ParallaxCard";
+import { CardDeck } from "@/components/CardDeck";
 
 // Honest positioning — every line scoped to what's true today (e.g. "at rest").
 const CLAIMS = [
@@ -30,38 +30,29 @@ const CLAIMS = [
 export function Claims() {
   return (
     <section id="why" className="relative z-10 mx-auto w-full max-w-[var(--container-wrap)] px-6 py-20 sm:px-8 sm:py-28">
-      <Reveal>
-        <p className="font-mono-x text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-3)]">why arca</p>
-        <h2 className="font-display mt-3 text-[clamp(28px,3.6vw,46px)] leading-[1.05] tracking-[-0.015em] text-[var(--color-ink)]">
-          Your memory. Yours alone.
-        </h2>
-        <p className="mt-4 max-w-[58ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">
-          Most AI memory lives in someone else&apos;s database — they can read it, lose it, or lock you out.
-          Arca encrypts your memory to your wallet and stores it on 0G, so it&apos;s portable across every
-          agent and can&apos;t be taken from you.
-        </p>
-      </Reveal>
-
-      <div className="mt-12 grid gap-4 sm:grid-cols-2">
-        {CLAIMS.map((c, i) => (
-          <Reveal key={c.k} delay={i * 0.05} className="h-full">
-            <ParallaxCard index={i} className="h-full">
-              <div className="group flex h-full flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-[var(--shadow-card)] transition-colors duration-300 hover:border-[var(--color-border-strong)]">
-                <span className="font-mono-x text-[11px] text-[var(--color-accent)]">{c.k}</span>
-                <h3 className="font-display text-[21px] leading-tight text-[var(--color-ink)]">{c.t}</h3>
-                <p className="text-[13px] leading-[1.6] text-[var(--color-ink-2)]">{c.d}</p>
-              </div>
-            </ParallaxCard>
+      <div className="grid items-center gap-x-12 gap-y-12 lg:grid-cols-2">
+        <div>
+          <Reveal>
+            <p className="font-mono-x text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-3)]">why arca</p>
+            <h2 className="font-display mt-3 text-[clamp(28px,3.6vw,46px)] leading-[1.05] tracking-[-0.015em] text-[var(--color-ink)]">
+              Your memory. Yours alone.
+            </h2>
+            <p className="mt-4 max-w-[52ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">
+              Most AI memory lives in someone else&apos;s database — they can read it, lose it, or lock you out.
+              Arca encrypts your memory to your wallet and stores it on 0G, so it&apos;s portable across every
+              agent and can&apos;t be taken from you.
+            </p>
+            <p className="mt-6 max-w-[52ch] font-mono-x text-[11px] leading-[1.6] text-[var(--color-ink-3)]">
+              Next: operator-blind — the service runs inside a 0G TEE so not even the host can read your key
+              or memory. Proven feasible on testnet, rolling out.
+            </p>
           </Reveal>
-        ))}
-      </div>
+        </div>
 
-      <Reveal delay={0.1}>
-        <p className="mt-6 max-w-[60ch] font-mono-x text-[11px] leading-[1.6] text-[var(--color-ink-3)]">
-          Next: operator-blind — the service runs inside a 0G TEE so not even the host can read your key
-          or memory. Proven feasible on testnet, rolling out.
-        </p>
-      </Reveal>
+        <Reveal delay={0.1}>
+          <CardDeck items={CLAIMS} />
+        </Reveal>
+      </div>
     </section>
   );
 }
