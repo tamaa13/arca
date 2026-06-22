@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
-import { Parallax } from "@/components/Parallax";
+import { Mockup3D } from "@/components/Mockup3D";
 import { OsScene } from "./os/OsScene";
 
 const lineVariants = {
@@ -103,9 +103,9 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.8, ease: EASE }}
         className="mx-auto mt-8 w-full max-w-[1240px] px-2"
       >
-        <Parallax speed={30}>
+        <Mockup3D>
           <OsScene />
-        </Parallax>
+        </Mockup3D>
       </motion.div>
     </section>
   );
