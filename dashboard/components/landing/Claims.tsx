@@ -1,7 +1,7 @@
 "use client";
 
 import { Reveal } from "@/components/Reveal";
-import { ScrollTilt } from "@/components/ScrollTilt";
+import { ParallaxCard } from "@/components/ParallaxCard";
 
 // Honest positioning — every line scoped to what's true today (e.g. "at rest").
 const CLAIMS = [
@@ -44,14 +44,14 @@ export function Claims() {
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2">
         {CLAIMS.map((c, i) => (
-          <Reveal key={c.k} delay={i * 0.05}>
-            <ScrollTilt className="h-full" intensity={9}>
-              <div className="flex h-full flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-[var(--shadow-card)]">
+          <Reveal key={c.k} delay={i * 0.05} className="h-full">
+            <ParallaxCard index={i} className="h-full">
+              <div className="group flex h-full flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-[var(--shadow-card)] transition-colors duration-300 hover:border-[var(--color-border-strong)]">
                 <span className="font-mono-x text-[11px] text-[var(--color-accent)]">{c.k}</span>
                 <h3 className="font-display text-[21px] leading-tight text-[var(--color-ink)]">{c.t}</h3>
                 <p className="text-[13px] leading-[1.6] text-[var(--color-ink-2)]">{c.d}</p>
               </div>
-            </ScrollTilt>
+            </ParallaxCard>
           </Reveal>
         ))}
       </div>
