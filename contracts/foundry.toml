@@ -9,3 +9,13 @@ optimizer_runs = 200
 
 [rpc_endpoints]
 zg_mainnet = "https://evmrpc.0g.ai"
+
+# 0G Chainscan custom verifier (mainnet). Source-verify ArcaRegistry with:
+#   forge verify-contract --chain-id 16661 --num-of-optimizations 200 \
+#     --compiler-version 0.8.24 --verifier custom \
+#     --verifier-url https://chainscan.0g.ai/open/api --verifier-api-key PLACEHOLDER \
+#     0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540 src/ArcaRegistry.sol:ArcaRegistry
+# (forge's --watch poller doesn't speak 0G's status dialect; check status at
+#  https://chainscan.0g.ai/open/api?module=contract&action=getsourcecode&address=<addr>)
+[etherscan]
+zg_mainnet = { key = "PLACEHOLDER", url = "https://chainscan.0g.ai/open/api", chain = 16661 }

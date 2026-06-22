@@ -36,7 +36,6 @@ const NAV = [
 ];
 
 const MAINNET_EXPLORER = "https://chainscan.0g.ai";
-const TESTNET_EXPLORER = "https://chainscan-galileo.0g.ai";
 
 export default function DocsPage() {
   return (
@@ -168,27 +167,24 @@ export default function DocsPage() {
             <Chapter n="04" label="Reference.">
               <Doc id="contracts" title="Contracts">
                 <P>
-                  Arca&apos;s registry on 0G Chain maps your encrypted-memory roots to your wallet. The app uses
-                  the <Em>v2 owner-mapping</Em> registry — a wallet-authorized delegate anchors your saves, so
-                  you don&apos;t sign every write. <Em>v1</Em> is the original self-anchor version. All public.
+                  Arca&apos;s registry on 0G Chain maps your encrypted-memory roots to your wallet — a
+                  wallet-authorized delegate anchors your saves, so you don&apos;t sign every write.
+                  Source-verified + public.
                 </P>
                 <ContractGroup
-                  title="Registry v2 · owner-mapping (used by the app)"
+                  title="Arca registry · owner-mapping"
                   rows={[
-                    { net: "0G Aristotle · mainnet (16661)", addr: "0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540", explorer: MAINNET_EXPLORER },
-                    { net: "0G Galileo · testnet (16602)", addr: "0xc196C28886c93462f55A78134b5bF6118A3f5860", explorer: TESTNET_EXPLORER },
-                  ]}
-                />
-                <ContractGroup
-                  title="Registry v1 · self-anchor"
-                  rows={[
-                    { net: "0G Aristotle · mainnet (16661)", addr: "0x746Cb7B6eC8521262b01E2788188fC475f95216e", explorer: MAINNET_EXPLORER },
-                    { net: "0G Galileo · testnet (16602)", addr: "0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD", explorer: TESTNET_EXPLORER },
+                    {
+                      net: "0G Aristotle · mainnet (16661)",
+                      addr: "0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540",
+                      explorer: MAINNET_EXPLORER,
+                      verified: true,
+                    },
                   ]}
                 />
                 <P>
                   <span className="font-mono-x text-[12px] text-[var(--color-ink-3)]">
-                    The live app runs on 0G Aristotle mainnet. Both networks&apos; contracts are deployed + proven.
+                    Deployed + source-verified on 0G Aristotle mainnet.
                   </span>
                 </P>
               </Doc>
@@ -251,7 +247,7 @@ function Ul({ children }: { children: React.ReactNode }) {
 function Ol({ children }: { children: React.ReactNode }) {
   return <ol className="flex list-decimal flex-col gap-2 pl-5 marker:text-[var(--color-ink-3)]">{children}</ol>;
 }
-function ContractGroup({ title, rows }: { title: string; rows: { net: string; addr: string; explorer: string }[] }) {
+function ContractGroup({ title, rows }: { title: string; rows: { net: string; addr: string; explorer: string; verified?: boolean }[] }) {
   return (
     <div className="mt-3">
       <p className="font-mono-x text-[11px] uppercase tracking-[0.14em] text-[var(--color-ink-2)]">{title}</p>
@@ -262,14 +258,21 @@ function ContractGroup({ title, rows }: { title: string; rows: { net: string; ad
             className="flex flex-col gap-1 border-t border-[var(--color-border)] py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
             <span className="font-mono-x text-[11px] uppercase tracking-[0.06em] text-[var(--color-ink-3)]">{zeroG(r.net)}</span>
-            <a
-              href={`${r.explorer}/address/${r.addr}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="break-all font-mono-x text-[12px] text-[var(--color-ink)] underline decoration-[var(--color-border-strong)] underline-offset-2 transition-colors hover:decoration-[var(--color-ink)]"
-            >
-              {r.addr}
-            </a>
+            <span className="flex items-center gap-2">
+              {r.verified && (
+                <span className="whitespace-nowrap rounded-full border border-[var(--color-border-strong)] px-2 py-0.5 font-mono-x text-[10px] uppercase tracking-[0.08em] text-[var(--color-ink-2)]">
+                  ✓ verified
+                </span>
+              )}
+              <a
+                href={`${r.explorer}/address/${r.addr}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all font-mono-x text-[12px] text-[var(--color-ink)] underline decoration-[var(--color-border-strong)] underline-offset-2 transition-colors hover:decoration-[var(--color-ink)]"
+              >
+                {r.addr}
+              </a>
+            </span>
           </div>
         ))}
       </div>
