@@ -25,7 +25,7 @@
   --rgb-cream: 249 248 246;
   --rgb-ink: 14 13 10;
 
-  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-display: var(--font-animal), "Helvetica Neue", system-ui, sans-serif;
   --font-body: var(--font-geist), "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 

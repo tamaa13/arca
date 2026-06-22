@@ -52,8 +52,7 @@ export function Hero() {
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.14, delayChildren: 0.05 }}
-          className="font-display text-[clamp(34px,4.6vw,62px)] font-light leading-[1.02] tracking-[-0.02em] text-[var(--color-ink)]"
-          style={{ fontVariationSettings: '"opsz" 96, "SOFT" 30, "WONK" 0' }}
+          className="font-display text-[clamp(34px,4.6vw,62px)] leading-[1.04] tracking-[-0.015em] text-[var(--color-ink)]"
         >
           <motion.span variants={lineVariants} className="block">
             One memory

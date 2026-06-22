@@ -1,16 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { MotionProvider } from "@/components/MotionProvider";
 import { PaperNoise } from "@/components/PaperNoise";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
+// Animal — display/heading font (SIL OFL). Headings only; body + code stay readable.
+const animal = localFont({
+  src: [
+    { path: "../public/fonts/animal/Animal-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/animal/Animal-Bold.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
-  axes: ["SOFT", "WONK", "opsz"],
-  variable: "--font-fraunces",
+  variable: "--font-animal",
 });
 const geist = Geist({ subsets: ["latin"], display: "swap", variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], display: "swap", variable: "--font-geist-mono" });
@@ -34,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${geist.variable} ${geistMono.variable}`}
+      className={`${animal.variable} ${geist.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
