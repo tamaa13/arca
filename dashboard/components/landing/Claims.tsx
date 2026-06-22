@@ -44,7 +44,7 @@ export function Claims() {
             </p>
             <p className="mt-6 max-w-[52ch] font-mono-x text-[11px] leading-[1.6] text-[var(--color-ink-3)]">
               Next: operator-blind — the service runs inside a 0G TEE so not even the host can read your key
-              or memory. Proven feasible on testnet, rolling out.
+              or memory. Proven feasible on testnet — not live yet.
             </p>
           </Reveal>
         </div>

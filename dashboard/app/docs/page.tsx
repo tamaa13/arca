@@ -114,7 +114,7 @@ export default function DocsPage() {
                   in memory while you&apos;re connected, so the operator could in principle read it during a
                   live session. We do <Em>not</Em> claim operator-blindness yet. Next: run the MCP inside a 0G
                   TEE (sealed enclave) so the operator can&apos;t read your key or memory even live — proven
-                  feasible on testnet, rolling out.
+                  feasible on testnet (sealed-container PoC), but <Em>not live yet</Em>.
                 </li>
               </Ul>
             </Section>
