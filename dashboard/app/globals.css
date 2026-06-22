@@ -147,6 +147,18 @@ html.dark {
   }
 }
 
+/* Same pastel ambient wash the landing body uses — theme-aware (glows over the
+   current --color-cream base) so any surface that needs it matches 1:1 in both
+   light and dark. Used by the intro overlay so the loader never looks mismatched. */
+.ambient-wash {
+  background:
+    radial-gradient(62rem 62rem at 2% -14%, color-mix(in oklab, #7d9fe6 30%, transparent), transparent 60%),
+    radial-gradient(54rem 54rem at 110% 16%, color-mix(in oklab, #e89a6b 28%, transparent), transparent 60%),
+    radial-gradient(50rem 50rem at 16% 116%, color-mix(in oklab, #5fc294 24%, transparent), transparent 58%),
+    radial-gradient(38rem 38rem at 86% 104%, color-mix(in oklab, #b58ad6 20%, transparent), transparent 62%),
+    var(--color-cream);
+}
+
 /* Font helpers for the new (Tailwind) components. */
 @utility font-display {
   font-family: var(--font-display);
