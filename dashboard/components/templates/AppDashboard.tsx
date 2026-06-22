@@ -9,6 +9,7 @@ import { ApproveStep } from "@/components/organisms/ApproveStep";
 import { UsagePanel } from "@/components/organisms/UsagePanel";
 import { YourAgentsPanel } from "@/components/organisms/YourAgentsPanel";
 import { Footer } from "@/components/landing/Footer";
+import { ZeroG } from "@/components/atoms/ZeroG";
 
 // The functional app — connect wallet · sign · activate · connect agents (and the
 // OAuth consent flow). Lives at /app and at /authorize; the landing is separate.
@@ -27,13 +28,13 @@ export function AppDashboard() {
             <>
               <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca memory.
               Connect your wallet and sign to approve — Arca derives your key from that signature
-              (never your private key) and encrypts your memory to your wallet on 0G, recoverable
+              (never your private key) and encrypts your memory to your wallet on <ZeroG />, recoverable
               with your wallet alone.
             </>
           ) : (
             <>
               Connect your wallet, fund a little storage, and point any agent at one shared memory.
-              It&apos;s encrypted to your wallet and stored on 0G — yours alone.
+              It&apos;s encrypted to your wallet and stored on <ZeroG /> — yours alone.
             </>
           )}
         </p>
@@ -56,7 +57,7 @@ export function AppDashboard() {
         )}
 
         <div className="note">
-          0G Galileo testnet · registry <span className="mono">{registry}</span>
+          <ZeroG /> Galileo testnet · registry <span className="mono">{registry}</span>
         </div>
       </div>
       <Footer />

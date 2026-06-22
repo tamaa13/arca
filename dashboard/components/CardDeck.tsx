@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { zeroG } from "@/components/atoms/ZeroG";
 
 type Item = { k: string; t: string; d: string };
 
@@ -86,7 +87,7 @@ function DeckCard({ it, index, total }: { it: Item; index: number; total: number
       </div>
       <div>
         <h3 className="font-display text-[clamp(25px,3.2vw,38px)] leading-[1.06] text-[var(--color-ink)]">{it.t}</h3>
-        <p className="mt-4 max-w-[42ch] text-[13.5px] leading-[1.6] text-[var(--color-ink-2)]">{it.d}</p>
+        <p className="mt-4 max-w-[42ch] text-[13.5px] leading-[1.6] text-[var(--color-ink-2)]">{zeroG(it.d)}</p>
       </div>
       <span className="font-mono-x text-[10px] uppercase tracking-[0.16em] text-[var(--color-ink-3)]">tap to flip →</span>
     </div>

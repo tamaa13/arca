@@ -2,6 +2,7 @@
 
 import { Reveal } from "@/components/Reveal";
 import { Parallax } from "@/components/Parallax";
+import { ZeroG } from "@/components/atoms/ZeroG";
 
 // Big centered statement band (pieterkoopt's philosophical-line pattern), adapted.
 export function ValueProp() {
@@ -14,7 +15,7 @@ export function ValueProp() {
           </h2>
           <p className="mx-auto mt-7 max-w-[54ch] text-[15px] leading-[1.65] text-[var(--color-ink-2)]">
             Switch models, switch apps, start a new chat — your context resets every time. Arca gives every
-            agent one shared memory, encrypted to your wallet on 0G, that you actually own.
+            agent one shared memory, encrypted to your wallet on <ZeroG />, that you actually own.
           </p>
         </Reveal>
       </Parallax>

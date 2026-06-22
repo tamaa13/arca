@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/atoms/Button";
 import { StepCard } from "@/components/molecules/StepCard";
+import { ZeroG } from "@/components/atoms/ZeroG";
 import type { ArcaApi } from "@/hooks/useArca";
 
 // OAuth-mode replacement for the connector step (step 5): an explicit consent card.
@@ -30,7 +31,7 @@ export function ApproveStep({ arca, n = 5 }: { arca: ArcaApi; n?: number }) {
       <p className="note" style={{ marginTop: 10 }}>
         Approving redirects you back to {arca.oauthClient ?? "the app"} with a one-time
         authorization code. Arca derives your key from your signature (never your private key);
-        your memory stays encrypted to your wallet on 0G.
+        your memory stays encrypted to your wallet on <ZeroG />.
       </p>
       <p className="note" style={{ marginTop: 10 }}>
         {/* Web/OAuth users can't manage connectors on this consent screen (no bearer here). The

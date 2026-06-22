@@ -2,6 +2,7 @@
 
 import { Reveal } from "@/components/Reveal";
 import { CardDeck } from "@/components/CardDeck";
+import { ZeroG } from "@/components/atoms/ZeroG";
 
 // Honest positioning — every line scoped to what's true today (e.g. "at rest").
 const CLAIMS = [
@@ -39,12 +40,12 @@ export function Claims() {
             </h2>
             <p className="mt-4 max-w-[52ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">
               Most AI memory lives in someone else&apos;s database — they can read it, lose it, or lock you out.
-              Arca encrypts your memory to your wallet and stores it on 0G, so it&apos;s portable across every
-              agent and can&apos;t be taken from you.
+              Arca encrypts your memory to your wallet and stores it on <ZeroG />, so it&apos;s portable across
+              every agent and can&apos;t be taken from you.
             </p>
             <p className="mt-6 max-w-[52ch] font-mono-x text-[11px] leading-[1.6] text-[var(--color-ink-3)]">
-              Next: operator-blind — the service runs inside a 0G TEE so not even the host can read your key
-              or memory. Proven feasible on testnet — not live yet.
+              Next: operator-blind — the service runs inside a <ZeroG /> TEE so not even the host can read your
+              key or memory. Proven feasible on testnet — not live yet.
             </p>
           </Reveal>
         </div>

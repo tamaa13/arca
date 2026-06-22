@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { StepBadge } from "@/components/atoms/StepBadge";
+import { zeroG } from "@/components/atoms/ZeroG";
 
 interface StepCardProps {
   n: number;
@@ -19,7 +20,7 @@ export function StepCard({ n, title, description, on = false, done = false, chil
       <h2>
         <StepBadge n={n} /> {title}
       </h2>
-      <p>{description}</p>
+      <p>{zeroG(description)}</p>
       {children}
     </section>
   );

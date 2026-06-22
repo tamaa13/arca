@@ -5,6 +5,7 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { StatusLine } from "@/components/atoms/StatusLine";
 import { StepCard } from "@/components/molecules/StepCard";
+import { ZeroG, zeroG } from "@/components/atoms/ZeroG";
 import type { ArcaApi } from "@/hooks/useArca";
 
 // One step that funds the session-signer AND authorizes it as a registry delegate (two wallet
@@ -30,12 +31,12 @@ export function ActivateStep({ arca, n = 3, optional = false }: { arca: ArcaApi;
     >
       <div className="row">
         <Input value={amount} onChange={(e) => setAmount(e.target.value)} disabled={arca.activating || done} />
-        <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>0G</span>
+        <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}><ZeroG /></span>
         <Button onClick={() => arca.activate(amount)} disabled={arca.activating || done || !arca.depositEnabled}>
           {done ? "Memory active ✓" : arca.activating ? "…" : "Activate memory"}
         </Button>
         {!done && (
-          <span className="note" style={{ marginTop: 0 }}>~0.1 0G ≈ 200 saves</span>
+          <span className="note" style={{ marginTop: 0 }}>{zeroG("~0.1 0G ≈ 200 saves")}</span>
         )}
       </div>
       <StatusLine status={arca.st3} />

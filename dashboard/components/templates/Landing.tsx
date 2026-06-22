@@ -5,6 +5,7 @@ import { ValueProp } from "@/components/landing/ValueProp";
 import { Claims } from "@/components/landing/Claims";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Footer } from "@/components/landing/Footer";
+import { ZeroG } from "@/components/atoms/ZeroG";
 
 // Marketing landing — hero → statement → why (features) → how it works → CTA → footer.
 // The functional dashboard lives separately at /app.
@@ -30,7 +31,7 @@ function ClosingCta() {
           One memory. Every agent. Yours.
         </h2>
         <p className="max-w-[48ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">
-          Connect your wallet, fund a little storage, and point any agent at one shared memory on 0G.
+          Connect your wallet, fund a little storage, and point any agent at one shared memory on <ZeroG />.
         </p>
         <Link
           href="/app"

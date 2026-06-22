@@ -1,6 +1,20 @@
 import type { Metadata } from "next";
+import { cloneElement, Fragment, isValidElement, type ReactNode } from "react";
 import { Navbar } from "@/components/organisms/Navbar";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
+import { ZeroG, zeroG } from "@/components/atoms/ZeroG";
+
+// Recursively replace every "0G" in a subtree's text with the brandmark.
+function deepZeroG(node: ReactNode): ReactNode {
+  if (typeof node === "string") return zeroG(node);
+  if (Array.isArray(node)) return node.map((n, i) => <Fragment key={i}>{deepZeroG(n)}</Fragment>);
+  if (isValidElement(node)) {
+    const el = node as React.ReactElement<{ children?: ReactNode }>;
+    if (el.props?.children == null) return node;
+    return cloneElement(el, undefined, deepZeroG(el.props.children));
+  }
+  return node;
+}
 
 export const metadata: Metadata = {
   title: "Arca — docs",
@@ -36,12 +50,12 @@ export default function DocsPage() {
             <div className="mb-4">
               <p className="font-mono-x text-[11px] uppercase tracking-[0.2em] text-[var(--color-ink-3)]">documentation</p>
               <h1 className="font-display mt-4 text-[clamp(38px,5vw,68px)] leading-[1.02] tracking-[-0.02em] text-[var(--color-ink)]">
-                User-owned memory on 0G.
+                User-owned memory on <ZeroG />.
               </h1>
               <p className="mt-5 max-w-[56ch] text-[15px] leading-[1.6] text-[var(--color-ink-2)]">
                 One memory for every agent — a CLI, a web chat, an IDE, any MCP client. It&apos;s encrypted to
-                your wallet and stored on 0G, so it&apos;s portable across apps and recoverable with your wallet
-                alone. The chapters below walk the model, the security, and the on-chain reference.
+                your wallet and stored on <ZeroG />, so it&apos;s portable across apps and recoverable with your
+                wallet alone. The chapters below walk the model, the security, and the on-chain reference.
               </p>
             </div>
 
@@ -220,7 +234,7 @@ function Doc({ id, title, children }: { id: string; title: string; children: Rea
   return (
     <section id={id} className="max-w-[64ch] scroll-mt-28 border-t border-[var(--color-border)] py-8 first:border-t-0 first:pt-0">
       <h2 className="font-display text-[24px] leading-tight tracking-[-0.01em] text-[var(--color-ink)]">{title}</h2>
-      <div className="mt-3 flex flex-col gap-3 text-[14px] leading-[1.7] text-[var(--color-ink-2)]">{children}</div>
+      <div className="mt-3 flex flex-col gap-3 text-[14px] leading-[1.7] text-[var(--color-ink-2)]">{deepZeroG(children)}</div>
     </section>
   );
 }
@@ -247,7 +261,7 @@ function ContractGroup({ title, rows }: { title: string; rows: { net: string; ad
             key={r.addr}
             className="flex flex-col gap-1 border-t border-[var(--color-border)] py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
-            <span className="font-mono-x text-[11px] uppercase tracking-[0.06em] text-[var(--color-ink-3)]">{r.net}</span>
+            <span className="font-mono-x text-[11px] uppercase tracking-[0.06em] text-[var(--color-ink-3)]">{zeroG(r.net)}</span>
             <a
               href={`${r.explorer}/address/${r.addr}`}
               target="_blank"

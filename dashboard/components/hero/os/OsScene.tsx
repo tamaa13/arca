@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
+import { ZeroG } from "@/components/atoms/ZeroG";
 import { BROWSER_HOST, BROWSER_LINES, CLI_AGENT, CLI_EXCHANGES, CLI_REPLY } from "@/lib/scene";
 import { BrowserChat } from "./BrowserChat";
 import { CliTerminal } from "./CliTerminal";
@@ -49,7 +50,7 @@ export function OsScene() {
           <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-accent)" }} />
           arca — one memory, every agent
         </span>
-        <span className="hidden sm:inline">0G · testnet</span>
+        <span className="hidden sm:inline"><ZeroG /> · testnet</span>
       </div>
 
       {/* save view: terminal beside the process panel */}

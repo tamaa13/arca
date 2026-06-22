@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
 import { Mockup3D } from "@/components/Mockup3D";
+import { ZeroG } from "@/components/atoms/ZeroG";
 import { OsScene } from "./os/OsScene";
 
 const lineVariants = {
@@ -37,7 +38,7 @@ export function Hero() {
           transition={{ duration: 0.7, ease: EASE }}
           className="mb-4 font-mono-x text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-3)]"
         >
-          user-owned memory · on 0G
+          user-owned memory · on <ZeroG />
         </motion.div>
 
         <motion.h1

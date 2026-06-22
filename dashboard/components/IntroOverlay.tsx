@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { useConsent, type ConsentCategories } from "@/components/consent/ConsentProvider";
+import { ZeroG } from "@/components/atoms/ZeroG";
 import { EASE } from "@/lib/motion";
 
 const SOFT = [0.16, 1, 0.3, 1] as const; // expressive ease-out for the zoom + settle
@@ -114,7 +115,7 @@ export function IntroOverlay() {
                     />
                   </div>
                   <span className="font-mono-x text-[10px] uppercase tracking-[0.26em]" style={{ color: "var(--color-ink-3)" }}>
-                    user-owned memory · on 0G
+                    user-owned memory · on <ZeroG />
                   </span>
                 </motion.div>
               ) : (
@@ -141,7 +142,7 @@ function ConsentChoice({ onFinish }: { onFinish: (c: ConsentCategories) => void 
       className="flex w-full flex-col items-center gap-6"
     >
       <p className="font-mono-x text-[11px] uppercase tracking-[0.2em]" style={{ color: "var(--color-ink-3)" }}>
-        user-owned memory · on 0G
+        user-owned memory · on <ZeroG />
       </p>
 
       <div

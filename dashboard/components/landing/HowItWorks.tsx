@@ -1,6 +1,7 @@
 "use client";
 
 import { Reveal } from "@/components/Reveal";
+import { zeroG } from "@/components/atoms/ZeroG";
 
 const STEPS = [
   {
@@ -92,7 +93,7 @@ function StepCard({
           </span>
           <div className="mt-auto pt-12">
             <h3 className="font-display text-[clamp(26px,3.4vw,44px)] leading-[1.04] text-[var(--color-ink)]">{t}</h3>
-            <p className="mt-4 max-w-[46ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">{d}</p>
+            <p className="mt-4 max-w-[46ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">{zeroG(d)}</p>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArcaApi } from "@/hooks/useArca";
+import { ZeroG } from "@/components/atoms/ZeroG";
 
 // Live storage tracker: remaining signer balance (auto-refreshed every 30s + on focus),
 // memories saved (on-chain root count), a low-balance warning, and a link to the signer's
@@ -13,7 +14,7 @@ export function UsagePanel({ arca }: { arca: ArcaApi }) {
       <div className="kv">
         <span>Remaining</span>
         <code style={arca.lowBalance ? { color: "var(--accent)" } : undefined}>
-          {arca.balance != null ? `${arca.balance} 0G` : "…"}
+          {arca.balance != null ? <>{arca.balance} <ZeroG /></> : "…"}
         </code>
       </div>
       <div className="kv">

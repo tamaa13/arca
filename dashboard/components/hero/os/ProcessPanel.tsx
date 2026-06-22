@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { zeroG } from "@/components/atoms/ZeroG";
 
 // The "behind the scenes" of one op — Arca's encrypt-to-wallet, on-0G pipeline.
 // Save = encrypt + store; recall = fetch + decrypt. Steps light up in sequence,
@@ -92,7 +93,7 @@ export function ProcessPanel({
                   {s.label}
                 </div>
                 <div className="font-mono-x text-[10px]" style={{ color: "var(--color-ink-3)" }}>
-                  {s.detail}
+                  {zeroG(s.detail)}
                 </div>
               </div>
             </div>
@@ -101,7 +102,7 @@ export function ProcessPanel({
       </div>
 
       <div className="mt-2 border-t border-[var(--color-border)] pt-2 font-mono-x text-[9.5px] leading-[1.45]" style={{ color: "var(--color-ink-3)" }}>
-        {FOOTER[variant]}
+        {zeroG(FOOTER[variant])}
       </div>
     </div>
   );
