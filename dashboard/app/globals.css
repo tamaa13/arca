@@ -25,10 +25,11 @@
   --rgb-cream: 249 248 246;
   --rgb-ink: 14 13 10;
 
-  /* Only two fonts site-wide: Animal (display) + BP Mono (everything else). */
-  --font-display: var(--font-animal), "Helvetica Neue", system-ui, sans-serif;
-  --font-body: var(--font-bpmono), ui-monospace, monospace;
-  --font-mono: var(--font-bpmono), ui-monospace, monospace;
+  /* pieterkoopt pairing: serif display (Playfair ≈ IvyPresto), grotesque body
+     (Space Grotesk ≈ Basis Grotesque), Geist Mono for technical text. */
+  --font-display: var(--font-playfair), Georgia, serif;
+  --font-body: var(--font-space), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --container-narrow: 720px;
   --container-wrap: 1140px;

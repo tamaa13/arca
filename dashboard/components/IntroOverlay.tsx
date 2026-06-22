@@ -71,7 +71,7 @@ function Loader() {
         style={{ color: "var(--color-ink)" }}
       >
         <Logo />
-        <span style={{ fontFamily: "var(--font-display)", fontSize: 28, letterSpacing: "0.16em" }}>ARCA</span>
+        <span style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 26, letterSpacing: "0.16em" }}>ARCA</span>
       </motion.div>
       <div className="h-px w-48 overflow-hidden" style={{ background: "var(--color-border)" }}>
         <motion.div
@@ -107,7 +107,7 @@ function Choose({
     >
       <div className="flex items-center gap-3" style={{ color: "var(--color-ink)" }}>
         <Logo />
-        <span style={{ fontFamily: "var(--font-display)", fontSize: 30, letterSpacing: "0.16em" }}>ARCA</span>
+        <span style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 28, letterSpacing: "0.16em" }}>ARCA</span>
       </div>
       <p className="font-mono-x text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--color-ink-3)" }}>
         user-owned memory · on 0G

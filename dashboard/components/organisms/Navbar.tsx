@@ -31,7 +31,7 @@ export function Navbar() {
       <div className="mx-auto flex h-14 w-full max-w-[var(--container-wrap)] items-center justify-between px-5 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
           <Logo />
-          <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, letterSpacing: "0.14em" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, letterSpacing: "0.16em" }}>
             ARCA
           </span>
         </Link>

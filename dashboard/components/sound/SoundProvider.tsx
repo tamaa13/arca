@@ -70,9 +70,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     a.getByteFrequencyData(data);
     const out: number[] = [];
     for (let i = 0; i < n; i++) {
-      // sample a low-mid band per bar (skip the very lowest bin)
+      // sample a low-mid band per bar (skip the very lowest bin), amplified for a visible bounce
       const idx = 1 + Math.floor(((i + 1) / (n + 1)) * (data.length - 2));
-      out.push(data[idx] / 255);
+      out.push(Math.min(1, (data[idx] / 255) * 1.8));
     }
     return out;
   }, []);

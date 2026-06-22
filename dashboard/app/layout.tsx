@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
 import { MotionProvider } from "@/components/MotionProvider";
 import { PaperNoise } from "@/components/PaperNoise";
 import { IntroOverlay } from "@/components/IntroOverlay";
@@ -8,24 +8,13 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
 
-// Animal — display/heading font (SIL OFL). Headings only; body + code stay readable.
-const animal = localFont({
-  src: [
-    { path: "../public/fonts/animal/Animal-Regular.woff2", weight: "400", style: "normal" },
-    { path: "../public/fonts/animal/Animal-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  display: "swap",
-  variable: "--font-animal",
-});
-// BP Mono (free, attribution backpacker.gr) — every other bit of text (body + code).
-const bpmono = localFont({
-  src: [
-    { path: "../public/fonts/bpmono/BPmono.ttf", weight: "400", style: "normal" },
-    { path: "../public/fonts/bpmono/BPmonoBold.ttf", weight: "700", style: "normal" },
-  ],
-  display: "swap",
-  variable: "--font-bpmono",
-});
+// pieterkoopt-style pairing (free look-alikes for the licensed Basis Grotesque / IvyPresto):
+//   display (elegant serif headlines)  → Playfair Display  (≈ IvyPresto Headline)
+//   body / UI (grotesque sans)         → Space Grotesk     (≈ Basis Grotesque)
+//   mono / technical                   → Geist Mono        (exact)
+const playfair = Playfair_Display({ subsets: ["latin"], style: ["normal", "italic"], display: "swap", variable: "--font-playfair" });
+const space = Space_Grotesk({ subsets: ["latin"], display: "swap", variable: "--font-space" });
+const geistMono = Geist_Mono({ subsets: ["latin"], display: "swap", variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
   title: "Arca — your memory",
@@ -46,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${animal.variable} ${bpmono.variable}`}
+      className={`${playfair.variable} ${space.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
