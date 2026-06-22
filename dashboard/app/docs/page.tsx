@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/organisms/Navbar";
+import { DocsNav } from "@/components/docs/DocsNav";
 
 export const metadata: Metadata = {
   title: "Arca — docs",
@@ -12,8 +13,12 @@ const SECTIONS = [
   { id: "connect", label: "Connect agents" },
   { id: "security", label: "Security model" },
   { id: "revoke", label: "Revoke" },
+  { id: "contracts", label: "Contracts" },
   { id: "faq", label: "FAQ" },
 ];
+
+const MAINNET_EXPLORER = "https://chainscan.0g.ai";
+const TESTNET_EXPLORER = "https://chainscan-galileo.0g.ai";
 
 export default function DocsPage() {
   return (
@@ -31,15 +36,7 @@ export default function DocsPage() {
         </header>
 
         <div className="grid gap-10 lg:grid-cols-[170px_1fr]">
-          <nav className="hidden lg:block">
-            <div className="sticky top-24 flex flex-col gap-1.5 border-l border-[var(--color-border)] pl-4 font-mono-x text-[12px]">
-              {SECTIONS.map((s) => (
-                <a key={s.id} href={`#${s.id}`} className="text-[var(--color-ink-3)] transition-colors hover:text-[var(--color-ink)]">
-                  {s.label}
-                </a>
-              ))}
-            </div>
-          </nav>
+          <DocsNav sections={SECTIONS} />
 
           <div className="min-w-0 max-w-[68ch]">
             <Section id="what" title="What is Arca">
@@ -127,6 +124,36 @@ export default function DocsPage() {
               </P>
             </Section>
 
+            <Section id="contracts" title="Contracts">
+              <P>
+                Arca&apos;s registry on 0G Chain maps your encrypted-memory roots to your wallet, so you
+                recover with your wallet alone. The app uses the <Em>v2 owner-mapping</Em> registry — a
+                wallet-authorized delegate anchors your saves, so you don&apos;t sign every write.{" "}
+                <Em>v1</Em> is the original self-anchor version. All addresses are public.
+              </P>
+
+              <ContractGroup
+                title="Registry v2 · owner-mapping (used by the app)"
+                rows={[
+                  { net: "0G Aristotle · mainnet (16661)", addr: "0xbf9751705b347fe21A5171Ebf2b0d00e1D91a540", explorer: MAINNET_EXPLORER },
+                  { net: "0G Galileo · testnet (16602)", addr: "0xc196C28886c93462f55A78134b5bF6118A3f5860", explorer: TESTNET_EXPLORER },
+                ]}
+              />
+              <ContractGroup
+                title="Registry v1 · self-anchor"
+                rows={[
+                  { net: "0G Aristotle · mainnet (16661)", addr: "0x746Cb7B6eC8521262b01E2788188fC475f95216e", explorer: MAINNET_EXPLORER },
+                  { net: "0G Galileo · testnet (16602)", addr: "0xCcFbEdd5E10051399CA2B6ea1fDF1B62126d4ECD", explorer: TESTNET_EXPLORER },
+                ]}
+              />
+
+              <P>
+                <span className="font-mono-x text-[12px] text-[var(--color-ink-3)]">
+                  The live app currently runs on 0G Galileo testnet. Mainnet contracts are deployed + proven.
+                </span>
+              </P>
+            </Section>
+
             <Section id="faq" title="FAQ">
               <Q q="Where does my memory live?">
                 Encrypted on 0G Storage; ownership on 0G Chain. Not in an Arca database.
@@ -170,6 +197,32 @@ function Ul({ children }: { children: React.ReactNode }) {
 function Ol({ children }: { children: React.ReactNode }) {
   return <ol className="flex list-decimal flex-col gap-2 pl-5 marker:text-[var(--color-ink-3)]">{children}</ol>;
 }
+function ContractGroup({ title, rows }: { title: string; rows: { net: string; addr: string; explorer: string }[] }) {
+  return (
+    <div className="mt-3">
+      <p className="font-mono-x text-[11px] uppercase tracking-[0.14em] text-[var(--color-ink-2)]">{title}</p>
+      <div className="mt-1.5 rounded-xl border border-[var(--color-border)] px-4">
+        {rows.map((r) => (
+          <div
+            key={r.addr}
+            className="flex flex-col gap-1 border-t border-[var(--color-border)] py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+          >
+            <span className="font-mono-x text-[11px] uppercase tracking-[0.06em] text-[var(--color-ink-3)]">{r.net}</span>
+            <a
+              href={`${r.explorer}/address/${r.addr}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all font-mono-x text-[12px] text-[var(--color-ink)] underline decoration-[var(--color-border-strong)] underline-offset-2 transition-colors hover:decoration-[var(--color-ink)]"
+            >
+              {r.addr}
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Q({ q, children }: { q: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-[var(--color-border)] pt-3">
