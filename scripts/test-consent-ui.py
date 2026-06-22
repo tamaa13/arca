@@ -3,7 +3,7 @@ Hermetic UI test for PR #4 — lightened OAuth (web) consent. Loads the dashboar
 (query params at /authorize) with a mock wallet + stubbed /authorize/approve, then proves:
   - after Connect + Sign, the "Approve & connect" card renders ABOVE the funding card,
   - its Approve button is ENABLED immediately (no funding required to connect),
-  - the funding card is demoted to the optional "Fund your vault" (not "Activate your vault").
+  - the funding card is demoted to the optional "Fund your memory" (not "Activate your memory").
 Run via with_server (serves dashboard/out):
   python .../with_server.py --server "python3 -m http.server 8798 -d dashboard/out" --port 8798 \
       -- python3 scripts/test-consent-ui.py
@@ -69,7 +69,7 @@ def main():
         page.wait_for_load_state("networkidle")
 
         # OAuth mode: lede mentions the requesting app.
-        ok(page.get_by_text("wants to connect to your Arca vault", exact=False).count() > 0, "OAuth consent mode detected")
+        ok(page.get_by_text("wants to connect to your Arca memory", exact=False).count() > 0, "OAuth consent mode detected")
 
         page.get_by_role("button", name="Connect wallet").click()
         page.wait_for_timeout(500)
@@ -82,15 +82,15 @@ def main():
         ok(approve_btn.first.is_enabled(), "Approve button ENABLED immediately (funding NOT required to connect)")
 
         # Funding demoted to optional.
-        ok(page.get_by_role("heading", name="Fund your vault").count() > 0, "funding card demoted to optional 'Fund your vault'")
+        ok(page.get_by_role("heading", name="Fund your memory").count() > 0, "funding card demoted to optional 'Fund your memory'")
         ok(page.get_by_text("Optional now", exact=False).count() > 0, "funding marked optional in copy")
-        ok(page.get_by_role("heading", name="Activate your vault").count() == 0, "no mandatory 'Activate your vault' in OAuth mode")
+        ok(page.get_by_role("heading", name="Activate your memory").count() == 0, "no mandatory 'Activate your memory' in OAuth mode")
 
         # Ordering: Approve heading appears ABOVE the Fund heading.
         heads = [h.inner_text().lower().replace("\n", " ") for h in page.query_selector_all("h2")]
         joined = " | ".join(heads)
         ai = next((i for i, h in enumerate(heads) if "approve & connect" in h), -1)
-        fi = next((i for i, h in enumerate(heads) if "fund your vault" in h), -1)
+        fi = next((i for i, h in enumerate(heads) if "fund your memory" in h), -1)
         ok(ai >= 0 and fi >= 0 and ai < fi, "Approve card is ABOVE the Fund card (order: %s)" % joined)
 
         page.screenshot(path="/tmp/arca-consent-ui.png", full_page=True)

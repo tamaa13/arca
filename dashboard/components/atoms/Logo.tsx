@@ -1,4 +1,4 @@
-// The Arca vault SVG mark.
+// The Arca memory SVG mark.
 export function Logo() {
   return (
     <svg width="26" height="26" viewBox="0 0 30 30">

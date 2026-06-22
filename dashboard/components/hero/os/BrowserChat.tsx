@@ -6,7 +6,7 @@ import type { ChatTurn } from "@/lib/scene";
 
 const dwell = (t: ChatTurn) => (t.role === "user" ? 1400 : t.role === "tool" ? 800 : 1700);
 
-// A minimal ChatGPT/Claude-style chat that reveals turns once `play` is true.
+// A minimal web-agent chat (generic, no brand) that reveals turns once `play` is true.
 export function BrowserChat({ play, lines, startDelay = 0 }: { play: boolean; lines: ChatTurn[]; startDelay?: number }) {
   const [shown, setShown] = useState(0);
 

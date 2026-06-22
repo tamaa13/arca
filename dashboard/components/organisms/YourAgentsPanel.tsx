@@ -46,7 +46,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
     setLabel("");
   };
   const onRevoke = (c: ConnectorListing) => {
-    if (window.confirm(`Revoke "${c.label}"? This agent loses access to your vault immediately.`)) {
+    if (window.confirm(`Revoke "${c.label}"? This agent loses access to your memory immediately.`)) {
       void arca.revokeConnector(c.id);
     }
   };
@@ -55,14 +55,14 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
     <section className="step on" style={{ marginBottom: 18 }}>
       <h2>Your agents</h2>
       <p>
-        Connect any agent to your one vault. Most clients connect by <strong>signing in</strong> (no token);
+        Connect any agent to your one shared memory. Most clients connect by <strong>signing in</strong> (no token);
         some use a token. Each connection is revocable on its own — if one is compromised, kill just that one.
       </p>
 
       {!ready && (
         <p className="note" style={{ color: "var(--accent)", marginTop: 14 }}>
-          ⚠ Activate your vault first (step above). You can connect agents now, but they can&apos;t save
-          until your vault is funded + authorized.
+          ⚠ Activate your memory first (step above). You can connect agents now, but they can&apos;t save
+          until your memory is funded + authorized.
         </p>
       )}
 

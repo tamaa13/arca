@@ -19,7 +19,7 @@ export function ActivateStep({ arca, n = 3, optional = false }: { arca: ArcaApi;
   return (
     <StepCard
       n={n}
-      title={optional ? "Fund your vault" : "Activate your vault"}
+      title={optional ? "Fund your memory" : "Activate your memory"}
       description={
         optional
           ? "Optional now — you can approve and connect first. Fund (deposit + authorize) before your first save so your agents can write under your wallet."
@@ -32,7 +32,7 @@ export function ActivateStep({ arca, n = 3, optional = false }: { arca: ArcaApi;
         <Input value={amount} onChange={(e) => setAmount(e.target.value)} disabled={arca.activating || done} />
         <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>0G</span>
         <Button onClick={() => arca.activate(amount)} disabled={arca.activating || done || !arca.depositEnabled}>
-          {done ? "Vault active ✓" : arca.activating ? "…" : "Activate vault"}
+          {done ? "Memory active ✓" : arca.activating ? "…" : "Activate memory"}
         </Button>
         {!done && (
           <span className="note" style={{ marginTop: 0 }}>~0.1 0G ≈ 200 saves</span>

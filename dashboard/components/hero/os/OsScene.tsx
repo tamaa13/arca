@@ -10,7 +10,7 @@ import { CliTerminal } from "./CliTerminal";
 const MINIMIZE_AT = 7000; // CLI finishes both saves, then minimizes
 const LOOP_MS = 14000;
 
-// One machine, two apps: the CLI saves to your vault, then minimizes and a
+// One machine, two apps: the CLI saves to your memory, then minimizes and a
 // browser agent recalls the same memory. A self-scheduling phase loop drives
 // the window choreography; the players reset via their `play` prop.
 export function OsScene() {
@@ -47,7 +47,7 @@ export function OsScene() {
       >
         <span className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-accent)" }} />
-          arca — one vault, every agent
+          arca — one memory, every agent
         </span>
         <span className="hidden sm:inline">0G · testnet</span>
       </div>

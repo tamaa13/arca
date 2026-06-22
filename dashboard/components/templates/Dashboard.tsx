@@ -24,19 +24,19 @@ export function Dashboard() {
       {/* Functional column. The hero CTA scrolls here. */}
       <div className="wrap" id="connect" style={isOAuth ? { paddingTop: 96 } : undefined}>
         <Reveal>
-          <h1>{isOAuth ? "Connect your vault." : "Open your vault."}</h1>
+          <h1>{isOAuth ? "Connect your memory." : "Open your memory."}</h1>
           <p className="lede">
             {isOAuth ? (
               <>
-                <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca vault.
+                <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca memory.
                 Connect your wallet and sign to approve — Arca derives your key from that signature
                 (never your private key) and encrypts your memory to your wallet on 0G, recoverable
                 with your wallet alone.
               </>
             ) : (
               <>
-                Connect your wallet, fund a little storage, and point any agent at one vault. Your memory
-                is encrypted to your wallet and stored on 0G — yours alone.
+                Connect your wallet, fund a little storage, and point any agent at one shared memory.
+                It&apos;s encrypted to your wallet and stored on 0G — yours alone.
               </>
             )}
           </p>

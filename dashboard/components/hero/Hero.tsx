@@ -10,7 +10,8 @@ const lineVariants = {
   show: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.85, ease: EASE } },
 };
 
-const SWAP = ["Claude", "ChatGPT", "Cursor", "Codex"] as const;
+// Generic agent KINDS (no brand names) — the cycle itself says "works with all of them".
+const SWAP = ["all your agents", "your terminal", "your browser", "your IDE"] as const;
 const SWAP_MS = 2400;
 
 export function Hero() {
@@ -55,7 +56,7 @@ export function Hero() {
           style={{ fontVariationSettings: '"opsz" 96, "SOFT" 30, "WONK" 0' }}
         >
           <motion.span variants={lineVariants} className="block">
-            One memory vault
+            One memory
           </motion.span>
           <motion.span variants={lineVariants} className="block">
             for{" "}
@@ -67,7 +68,7 @@ export function Hero() {
               style={{ fontFamily: "var(--font-display)", color: "var(--color-accent)" }}
             >
               <span aria-hidden className="invisible col-start-1 row-start-1">
-                ChatGPT
+                all your agents
               </span>
               <AnimatePresence initial={false}>
                 <motion.span
@@ -93,8 +94,8 @@ export function Hero() {
           className="mt-6 max-w-[52ch] text-[15px] text-[var(--color-ink-2)] sm:text-[16px]"
           style={{ fontFamily: "var(--font-body)" }}
         >
-          Save once, recall from any agent. Encrypted to your wallet on 0G — you hold the key, and you can
-          revoke any agent on its own.
+          Works with any kind of agent — your terminal, your browser, your IDE. Save once, recall anywhere;
+          encrypted to your wallet on 0G, so you hold the key and can revoke any agent on its own.
         </motion.p>
 
         <motion.div
@@ -109,7 +110,7 @@ export function Hero() {
             className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-7 py-3.5 text-[15px] font-medium tracking-tight text-[var(--color-cream)] shadow-[var(--shadow-pill)] transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
             style={{ border: "none" }}
           >
-            <span>Open your vault</span>
+            <span>Open your memory</span>
             <span aria-hidden className="transition-transform group-hover:translate-x-1">
               →
             </span>

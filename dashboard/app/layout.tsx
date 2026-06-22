@@ -16,9 +16,9 @@ const geist = Geist({ subsets: ["latin"], display: "swap", variable: "--font-gei
 const geistMono = Geist_Mono({ subsets: ["latin"], display: "swap", variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: "Arca — your vault",
+  title: "Arca — your memory",
   description:
-    "Connect your wallet, fund a little storage, and point any agent at one vault. Your memory is encrypted to your wallet and stored on 0G — yours alone.",
+    "One memory for all your agents. Connect your wallet, fund a little storage, and point any agent at one shared memory — encrypted to your wallet and stored on 0G, yours alone.",
 };
 
 export const viewport: Viewport = {

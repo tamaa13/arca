@@ -13,7 +13,7 @@ export function ApproveStep({ arca, n = 5 }: { arca: ArcaApi; n?: number }) {
     <StepCard
       n={n}
       title="Approve & connect"
-      description={`Connect your Arca vault to ${arca.oauthClient ?? "this app"}. They’ll read & write your one vault, encrypted to your wallet — you can revoke on-chain anytime.`}
+      description={`Connect your Arca memory to ${arca.oauthClient ?? "this app"}. They’ll read & write your one shared memory, encrypted to your wallet — you can revoke on-chain anytime.`}
       on={arca.step5On}
     >
       <div className="row" style={{ marginTop: 12 }}>
