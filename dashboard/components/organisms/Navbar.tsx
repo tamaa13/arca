@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/atoms/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -27,12 +28,12 @@ export function Navbar() {
       style={{ background: scrolled ? "rgb(var(--rgb-cream) / 0.78)" : "transparent" }}
     >
       <div className="mx-auto flex h-14 w-full max-w-[var(--container-wrap)] items-center justify-between px-5 sm:px-8">
-        <a href="/" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
+        <Link href="/" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
           <Logo />
           <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, letterSpacing: "0.14em" }}>
             ARCA
           </span>
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-7 md:flex">
           {[
@@ -40,23 +41,23 @@ export function Navbar() {
             { href: "/#why", label: "why arca" },
             { href: "/docs", label: "docs" },
           ].map((l) => (
-            <a
+            <Link
               key={l.label}
               href={l.href}
               className="font-mono-x text-[12px] tracking-[0.02em] text-[var(--color-ink-2)] transition-colors hover:text-[var(--color-ink)]"
             >
               {l.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
         <div className="flex items-center gap-3 sm:gap-4">
-          <a
+          <Link
             href="/app"
             className="rounded-full border border-[var(--color-border-strong)] px-3.5 py-1.5 font-mono-x text-[12px] tracking-[0.02em] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-cream)]"
           >
             open app
-          </a>
+          </Link>
           <ThemeToggle />
         </div>
       </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Navbar } from "@/components/organisms/Navbar";
 import { Hero } from "@/components/hero/Hero";
 import { ValueProp } from "@/components/landing/ValueProp";
@@ -31,14 +32,14 @@ function ClosingCta() {
         <p className="max-w-[48ch] text-[14px] leading-[1.6] text-[var(--color-ink-2)]">
           Connect your wallet, fund a little storage, and point any agent at one shared memory on 0G.
         </p>
-        <a
+        <Link
           href="/app"
           className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-7 py-3.5 text-[14px] font-medium tracking-tight text-[var(--color-cream)] shadow-[var(--shadow-pill)] transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
           style={{ border: "none" }}
         >
           <span>Open your memory</span>
           <span aria-hidden className="transition-transform group-hover:translate-x-1">→</span>
-        </a>
+        </Link>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
 import { Parallax } from "@/components/Parallax";
@@ -28,13 +29,13 @@ export function Hero() {
   const word = SWAP[i] ?? SWAP[0];
 
   return (
-    <section id="hero" className="relative isolate flex flex-col px-6 pt-28 sm:pt-32">
+    <section id="hero" className="relative isolate flex min-h-screen flex-col items-center justify-center px-4 pb-8 pt-24">
       <div className="mx-auto flex w-full max-w-[var(--container-wrap)] flex-col items-center text-center">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="mb-5 font-mono-x text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-3)]"
+          className="mb-4 font-mono-x text-[11px] uppercase tracking-[0.18em] text-[var(--color-ink-3)]"
         >
           user-owned memory · on 0G
         </motion.div>
@@ -43,7 +44,7 @@ export function Hero() {
           initial="hidden"
           animate="show"
           transition={{ staggerChildren: 0.14, delayChildren: 0.05 }}
-          className="font-display text-[clamp(34px,4.6vw,62px)] leading-[1.04] tracking-[-0.015em] text-[var(--color-ink)]"
+          className="font-display text-[clamp(30px,4vw,54px)] leading-[1.04] tracking-[-0.015em] text-[var(--color-ink)]"
         >
           <motion.span variants={lineVariants} className="block">
             One memory
@@ -77,24 +78,13 @@ export function Hero() {
           </motion.span>
         </motion.h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.55, ease: EASE }}
-          className="mt-6 max-w-[52ch] text-[15px] text-[var(--color-ink-2)] sm:text-[16px]"
-          style={{ fontFamily: "var(--font-body)" }}
-        >
-          Works with any kind of agent — your terminal, your browser, your IDE. Save once, recall anywhere;
-          encrypted to your wallet on 0G, so you hold the key and can revoke any agent on its own.
-        </motion.p>
-
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.7, ease: EASE }}
-          className="mt-8"
+          transition={{ duration: 0.8, delay: 0.55, ease: EASE }}
+          className="mt-7"
         >
-          <a
+          <Link
             href="/app"
             className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-7 py-3.5 text-[15px] font-medium tracking-tight text-[var(--color-cream)] shadow-[var(--shadow-pill)] transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
             style={{ border: "none" }}
@@ -103,17 +93,17 @@ export function Hero() {
             <span aria-hidden className="transition-transform group-hover:translate-x-1">
               →
             </span>
-          </a>
+          </Link>
         </motion.div>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, delay: 0.9, ease: EASE }}
-        className="mx-auto mt-12 w-full px-2 pb-4 sm:mt-14"
+        transition={{ duration: 1, delay: 0.8, ease: EASE }}
+        className="mx-auto mt-8 w-full max-w-[1240px] px-2"
       >
-        <Parallax speed={56}>
+        <Parallax speed={30}>
           <OsScene />
         </Parallax>
       </motion.div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/atoms/Button";
 import { StepCard } from "@/components/molecules/StepCard";
 import type { ArcaApi } from "@/hooks/useArca";
@@ -35,7 +36,7 @@ export function ApproveStep({ arca, n = 5 }: { arca: ArcaApi; n?: number }) {
         {/* Web/OAuth users can't manage connectors on this consent screen (no bearer here). The
             bare dashboard origin restores a real session + renders the agents manager. */}
         Want to see or revoke your connected agents? Open the{" "}
-        <a href="/">Arca dashboard</a>.
+        <Link href="/app">Arca dashboard</Link>.
       </p>
     </StepCard>
   );

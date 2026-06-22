@@ -37,7 +37,7 @@ export function OsScene() {
   const hidden = { opacity: 0, scale: 0.9, y: 26 };
 
   return (
-    <div className="relative mx-auto aspect-[16/10] w-full max-w-[980px] overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[var(--shadow-doc)]">
+    <div className="relative mx-auto aspect-[16/10] w-full max-w-[1240px] overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[var(--shadow-doc)]">
       <Wallpaper />
 
       {/* menubar */}
