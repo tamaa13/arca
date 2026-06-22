@@ -5,12 +5,14 @@
 //    a sign-in flow (Codex, raw HTTP MCP).
 import type { Platform } from "./constants";
 
-/** Best-known connect method per client. A "signin" client that turns out to lack OAuth can always
- *  fall back to the token method (the panel offers both). Verified: Claude Code uses sign-in (OAuth). */
+/** Connect method per client. VERIFIED: Claude Code forces OAuth/sign-in (it ignores a static bearer
+ *  header), so it's the only "signin" client. opencode uses the static bearer header (verified live),
+ *  and Cursor/Codex/Antigravity/raw clients take a header too — so they use the token method. (A
+ *  "signin" client that lacks OAuth, or a token client that prefers OAuth, can use the other method.) */
 export const PLATFORM_AUTH: Record<Platform, "signin" | "token"> = {
   claude: "signin",
-  cursor: "signin",
-  opencode: "signin",
+  cursor: "token",
+  opencode: "token",
   codex: "token",
   antigravity: "token",
   other: "token",

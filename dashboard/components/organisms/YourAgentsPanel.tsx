@@ -34,9 +34,11 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
   const isSignin = PLATFORM_AUTH[platform] === "signin";
   const ready = arca.step3Done && arca.step4Done; // funded AND authorized = saves will work
   const list = arca.connectors ?? [];
-  // After minting, render the platform's TOKEN config carrying the new token (for token clients,
-  // or as the sign-in fallback). The token is platform-agnostic — switching tabs reformats it.
-  const tokenSnippet = arca.newConnectorToken ? snippets(d.connectorUrl, arca.newConnectorToken)[platform] : null;
+  // Token clients see a config TEMPLATE with a placeholder (never an embedded token — that made the
+  // same minted token appear across every platform tab). The actual token is created separately
+  // below and shown ONCE, so each agent gets its own.
+  const PLACEHOLDER = "PASTE_YOUR_TOKEN";
+  const tokenConfig = !isSignin ? snippets(d.connectorUrl, PLACEHOLDER)[platform] : null;
 
   const onAdd = async () => {
     await arca.mintConnector(label);
@@ -67,44 +69,46 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
       <ConnectorTabs active={platform} onSelect={setPlatform} />
 
       {isSignin ? (
-        <>
-          <p className="note" style={{ marginTop: 10 }}>
-            Add this to {platformLabel(platform)} — it opens the Arca sign-in → connect your wallet + sign once
-            to approve. <strong>No token to paste.</strong>
-          </p>
-          <CodeBlock code={signInSnippet(d.connectorUrl, platform)} copyable />
-          <p className="note" style={{ marginTop: 10 }}>
-            {platformLabel(platform)} doesn&apos;t support sign-in? Mint a token instead ↓
-          </p>
-        </>
+        <p className="note" style={{ marginTop: 10 }}>
+          Add this to {platformLabel(platform)} — it opens the Arca sign-in → connect your wallet + sign once
+          to approve. <strong>No token to paste.</strong>
+        </p>
       ) : (
         <p className="note" style={{ marginTop: 10 }}>
-          {platformLabel(platform)} connects with a token. Name it, add it, and paste the config below.
+          {platformLabel(platform)} connects with a token. Add this config, then create a token below and paste
+          it where it says <code>{PLACEHOLDER}</code> — one token per agent.
         </p>
       )}
+      <CodeBlock code={isSignin ? signInSnippet(d.connectorUrl, platform) : tokenConfig!} copyable />
 
-      {/* Mint a per-agent token — primary for token clients, fallback for sign-in clients */}
+      {/* Create a token (one per agent) — primary for token clients, fallback for sign-in clients */}
+      <p className="note" style={{ marginTop: 14 }}>
+        {isSignin
+          ? `${platformLabel(platform)} doesn't support sign-in? Create a token instead:`
+          : "Create a token to paste above:"}
+      </p>
       <div className="row">
         <Input
           type="text"
-          placeholder="e.g. Codex-laptop"
+          placeholder="name this agent, e.g. opencode-laptop"
           value={label}
           maxLength={64}
           onChange={(e) => setLabel(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !arca.connectorBusy) void onAdd(); }}
           disabled={arca.connectorBusy}
-          style={{ width: 200 }}
+          style={{ width: 240 }}
         />
         <Button onClick={onAdd} disabled={arca.connectorBusy || !label.trim()}>
-          {arca.connectorBusy ? "…" : "Add a token"}
+          {arca.connectorBusy ? "…" : "Create token"}
         </Button>
       </div>
-      {tokenSnippet && (
+      {arca.newConnectorToken && (
         <div style={{ marginTop: 12 }}>
           <p className="note" style={{ color: "var(--accent)", marginTop: 0 }}>
-            ⚠ Copy this now — the token is shown only once and cannot be recovered.
+            ⚠ Your new token — copy it now (shown only once). Paste it into the config above
+            {isSignin ? "." : <> where it says <code>{PLACEHOLDER}</code>.</>}
           </p>
-          <CodeBlock code={tokenSnippet} copyable />
+          <CodeBlock code={arca.newConnectorToken} copyable />
           <div className="row">
             <Button variant="ghost" onClick={arca.dismissNewToken}>
               Done — I&apos;ve copied it

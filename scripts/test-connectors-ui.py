@@ -141,13 +141,13 @@ def main():
         ok(page.get_by_text("Sign-in", exact=True).count() > 0, "OAuth connector shows the Sign-in badge")
 
         # Add a CLI connector.
-        page.get_by_placeholder("e.g. Codex-laptop").fill("Codex-laptop")
-        page.get_by_role("button", name="Add a token").click()
+        page.get_by_placeholder("name this agent").fill("Codex-laptop")
+        page.get_by_role("button", name="Create token").click()
         page.wait_for_timeout(700)
 
         # Raw token shown ONCE.
         token_shown = page.get_by_text("arca_live_NEWTOKEN_1", exact=False).count() > 0
-        ok(token_shown, "minted token shown once after Add a token")
+        ok(token_shown, "minted token shown once after Create token")
         ok(page.get_by_text("shown only once", exact=False).count() > 0, "one-time-copy warning shown")
 
         # New connector appears as a CLI row + Active.
