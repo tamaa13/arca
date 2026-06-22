@@ -172,10 +172,16 @@ def main():
         ok(page.get_by_role("button", name="Revoke").count() == 1, "only the web connector still revocable (selective ✓)")
         ok(page.get_by_text("revoked ✓", exact=False).count() > 0, "revoke success status shown")
 
-        # ChatGPT / Web tab shows a sign-in tutorial (custom connector, no token).
-        page.get_by_role("button", name="ChatGPT / Web").click()
+        # ChatGPT has its OWN tab → sign-in tutorial (custom connector, no token) + honesty caption.
+        page.get_by_role("button", name="ChatGPT", exact=True).click()
         page.wait_for_timeout(300)
-        ok(page.get_by_text("custom connector", exact=False).count() > 0, "ChatGPT / Web tab shows the custom-connector sign-in tutorial")
+        ok(page.get_by_text("custom connector", exact=False).count() > 0, "ChatGPT tab shows the custom-connector sign-in tutorial")
+        ok(page.get_by_text("Works by spec", exact=False).count() > 0, "ChatGPT tab shows the unverified honesty caption")
+
+        # Claude.ai is now a SEPARATE tab from Claude Code (no longer mixed into one "Web" tab).
+        page.get_by_role("button", name="Claude.ai", exact=True).click()
+        page.wait_for_timeout(300)
+        ok(page.get_by_text("Settings → Connectors", exact=False).count() > 0, "Claude.ai has its own tab, split from Claude Code")
 
         page.screenshot(path="/tmp/arca-connectors-ui.png", full_page=True)
         browser.close()

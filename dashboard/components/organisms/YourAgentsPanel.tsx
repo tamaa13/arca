@@ -6,7 +6,7 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { KeyValue } from "@/components/atoms/KeyValue";
 import { ConnectorTabs } from "@/components/molecules/ConnectorTabs";
-import { snippets, signInSnippet, PLATFORM_AUTH } from "@/lib/snippets";
+import { snippets, signInSnippet, PLATFORM_AUTH, VERIFIED_LIVE } from "@/lib/snippets";
 import { platformLabel } from "@/lib/snippets";
 import type { Platform } from "@/lib/constants";
 import type { ArcaApi } from "@/hooks/useArca";
@@ -32,6 +32,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
   if (!d?.token) return null;
 
   const isSignin = PLATFORM_AUTH[platform] === "signin";
+  const verified = VERIFIED_LIVE.includes(platform); // proven live vs works-by-spec (honesty caption)
   const ready = arca.step3Done && arca.step4Done; // funded AND authorized = saves will work
   const list = arca.connectors ?? [];
   // Token clients see a config TEMPLATE with a placeholder (never an embedded token — that made the
@@ -80,6 +81,12 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
         </p>
       )}
       <CodeBlock code={isSignin ? signInSnippet(d.connectorUrl, platform) : tokenConfig!} copyable />
+      {!verified && (
+        <p className="note" style={{ marginTop: 8, color: "var(--muted)" }}>
+          ⓘ Works by spec — verified live end-to-end so far: <strong>Claude Code</strong> +{" "}
+          <strong>opencode</strong>. {platformLabel(platform)} not yet.
+        </p>
+      )}
 
       {/* Create a token (one per agent) — primary for token clients, fallback for sign-in clients */}
       <p className="note" style={{ marginTop: 14 }}>
@@ -116,11 +123,6 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
           </div>
         </div>
       )}
-
-      <p className="note" style={{ marginTop: 14 }}>
-        Using ChatGPT or Claude.ai web? Pick the <strong>ChatGPT / Web</strong> tab above for the steps — it
-        appears in the list below once connected, revocable like any other.
-      </p>
 
       {/* connected agents list */}
       {arca.connectors == null ? (

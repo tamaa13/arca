@@ -45,7 +45,9 @@ export const REGISTRY_ROOT_COUNT_ABI: string[] = [
 // Block explorer for the active network — signer activity / usage-history links.
 export const EXPLORER = GALILEO.params.blockExplorerUrls[0];
 
-// Agent platforms shown as tabs. "web" = Claude.ai / ChatGPT web (custom connector + sign-in);
-// the rest are CLI/IDE clients (Claude signs in; the others paste a token).
-export type Platform = "claude" | "cursor" | "opencode" | "codex" | "antigravity" | "web" | "other";
-export const PLATFORMS: Platform[] = ["claude", "cursor", "opencode", "codex", "antigravity", "web", "other"];
+// Agent platforms shown as tabs — one per app. Sign-in apps first (Claude Code / Claude.ai / ChatGPT),
+// then token apps. "claudeweb" = Claude.ai web, "chatgpt" = ChatGPT web (both custom connector + sign-in).
+export type Platform =
+  | "claude" | "claudeweb" | "chatgpt" | "cursor" | "opencode" | "codex" | "antigravity" | "other";
+export const PLATFORMS: Platform[] =
+  ["claude", "claudeweb", "chatgpt", "cursor", "opencode", "codex", "antigravity", "other"];
