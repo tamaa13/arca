@@ -21,6 +21,7 @@ const dec = new TextDecoder();
 
 const UPLOAD_CONFIRM_MS = 8_000; // report stored vs pending; upload continues in bg
 const DOWNLOAD_TIMEOUT_MS = 30_000;
+const RECALL_CONCURRENCY = 10; // parallel blob downloads per recall (bounds load on 0G)
 
 /** Reject after `ms` without canceling `p` (a slow upload may still finalize). */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -113,16 +114,26 @@ export class RemoteMemoryStore implements MemoryStore {
     throw new Error(`anchor failed after ${attempts} attempts: ${msg}`);
   }
 
-  /** Registry-only recall: getRoots(wallet) → getBlob → decrypt. Newest-first. */
+  /** Per-session cache: rootHash → decrypted record. Roots are immutable (content-addressed),
+   *  so a cached entry never goes stale; a recall only downloads roots it hasn't seen yet. The
+   *  store is created per MCP session, so the cache is scoped to one wallet + already-in-RAM key. */
+  private readonly cache = new Map<string, MemoryRecord>();
+
+  /**
+   * Registry-only recall: getRoots(wallet) → getBlob → decrypt → filter → newest-first.
+   *
+   * Downloads run in PARALLEL (bounded) and ONLY for roots not already cached — so recall is
+   * ~O(slowest blob) instead of O(N × latency), and repeat/incremental recalls within a session
+   * are near-instant. A not-yet-finalized / foreign blob is skipped (absent from the cache) and
+   * naturally retried on the next recall. (Very large vaults still warrant server-side
+   * pagination — tracked separately; this removes the sequential-download timeout.)
+   */
   async recall(query?: string): Promise<MemoryRecord[]> {
     const roots = await this.registry.getRoots(this.owner);
-    const needle = query?.toLowerCase();
-    const seen = new Set<string>();
+    const unique = [...new Set(roots)]; // registry is append-only — dedup
+    const missing = unique.filter((h) => !this.cache.has(h));
 
-    const records: MemoryRecord[] = [];
-    for (const rootHash of roots) {
-      if (seen.has(rootHash)) continue; // registry is append-only — dedup
-      seen.add(rootHash);
+    await mapLimited(missing, RECALL_CONCURRENCY, async (rootHash) => {
       try {
         const ciphertext = await withTimeout(
           this.storage.getBlob(rootHash),
@@ -132,12 +143,33 @@ export class RemoteMemoryStore implements MemoryStore {
         const plaintext = await this.crypto.decrypt(ciphertext, "");
         const record = JSON.parse(dec.decode(plaintext)) as MemoryRecord;
         record.rootHash = rootHash;
-        if (needle && !record.text.toLowerCase().includes(needle)) continue;
-        records.push(record);
+        this.cache.set(rootHash, record);
       } catch {
-        continue; // not finalized yet / not ours → skip, never hang the whole recall
+        /* not finalized yet / not ours → skip; retried on the next recall (stays uncached) */
       }
+    });
+
+    const needle = query?.toLowerCase();
+    const records: MemoryRecord[] = [];
+    for (const rootHash of unique) {
+      const record = this.cache.get(rootHash);
+      if (!record) continue;
+      if (needle && !record.text.toLowerCase().includes(needle)) continue;
+      records.push(record);
     }
     return records.sort((a, b) => b.createdAt - a.createdAt);
   }
+}
+
+/** Run `fn` over `items` with at most `limit` in flight. Never rejects (fn handles its own
+ *  errors); resolves when all are done. Keeps recall from opening unbounded 0G connections. */
+async function mapLimited<T>(items: T[], limit: number, fn: (x: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const i = next++;
+      await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }

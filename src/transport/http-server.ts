@@ -619,20 +619,43 @@ app.post("/session", rateLimit, async (req, res) => {
 });
 
 // ─── Connector management — granular per-connector tokens (individually revocable) ───
-// Each agent connection gets its OWN opaque token mapping to the wallet's vault, so one can
-// be revoked without touching the others. mint/revoke require a FRESH wallet management
-// signature (EIP-191 text, domain-separated from the key-deriving EIP-712 sig, single-use,
-// 5-min fresh); GET /connectors uses the active bearer (read-only list of labels/status).
+// Each agent connection gets its OWN opaque token mapping to the wallet's vault, so one can be
+// revoked without touching the others. Management (mint/revoke) is authorized EITHER by the live
+// SESSION bearer (the signed-in dashboard → one click, no extra wallet popup, since that bearer
+// already grants full vault access so this is no privilege escalation) OR by a fresh EIP-191
+// wallet signature (cross-device / no live session; domain-separated from the key-deriving
+// EIP-712 sig). GET /connectors lists labels/status for the active bearer.
+
+/** Authorize a connector-management action → the owner wallet, or an error.
+ *  (a) live SESSION bearer (NOT a connector token — a connector is a data credential, not a
+ *      management one), or (b) a fresh EIP-191 wallet management signature. See the note above. */
+function authorizeConnectorMgmt(
+  req: Request,
+  body: { wallet?: string; label?: string; connectorId?: string; issuedAt?: number; signature?: string },
+  action: "add" | "revoke" | "revoke-all",
+): { wallet: string } | { status: number; error: string; reason?: string } {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (token) {
+    const s = sessionForToken(token); // session bearer only — never a per-connector token
+    if (s) return { wallet: s.wallet };
+  }
+  const { wallet, label, connectorId, issuedAt, signature } = body;
+  if (wallet && issuedAt && signature) {
+    const message = connectorMgmtMessage({ action, wallet, label, connectorId, issuedAt });
+    const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
+    if (v.ok) return { wallet };
+    return { status: 401, error: "bad_signature", reason: v.reason };
+  }
+  return { status: 401, error: "unauthorized" };
+}
 
 app.post("/connectors/mint", rateLimit, (req, res) => {
-  const { wallet, label, issuedAt, signature } = (req.body ?? {}) as {
-    wallet?: string; label?: string; issuedAt?: number; signature?: string;
-  };
-  if (!wallet || !label || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
-  const message = connectorMgmtMessage({ action: "add", wallet, label, issuedAt });
-  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
-  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
-  const { token, row } = mintConnector({ wallet, label, kind: "cli" });
+  const body = (req.body ?? {}) as { wallet?: string; label?: string; issuedAt?: number; signature?: string };
+  if (!body.label) { res.status(400).json({ error: "invalid_request" }); return; }
+  const a = authorizeConnectorMgmt(req, body, "add");
+  if ("status" in a) { res.status(a.status).json({ error: a.error, reason: a.reason }); return; }
+  const { token, row } = mintConnector({ wallet: a.wallet, label: body.label, kind: "cli" });
   res.json({ token, id: row.hash, label: row.label, expiresAt: row.expiresAt });
 });
 
@@ -646,14 +669,11 @@ app.get("/connectors", (req, res) => {
 });
 
 app.post("/connectors/revoke", rateLimit, (req, res) => {
-  const { wallet, connectorId, issuedAt, signature } = (req.body ?? {}) as {
-    wallet?: string; connectorId?: string; issuedAt?: number; signature?: string;
-  };
-  if (!wallet || !connectorId || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
-  const message = connectorMgmtMessage({ action: "revoke", wallet, connectorId, issuedAt });
-  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
-  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
-  const row = revokeConnector(wallet, connectorId);
+  const body = (req.body ?? {}) as { wallet?: string; connectorId?: string; issuedAt?: number; signature?: string };
+  if (!body.connectorId) { res.status(400).json({ error: "invalid_request" }); return; }
+  const a = authorizeConnectorMgmt(req, body, "revoke");
+  if ("status" in a) { res.status(a.status).json({ error: a.error, reason: a.reason }); return; }
+  const row = revokeConnector(a.wallet, body.connectorId); // null if the connector isn't this wallet's
   if (!row) { res.status(404).json({ error: "not_found" }); return; }
   if (row.kind === "oauth" && row.family) revokeFamily(row.family); // kill the OAuth family too
   // Also enforced on the very next /mcp request via reauthorized (per-request re-check).
@@ -661,12 +681,10 @@ app.post("/connectors/revoke", rateLimit, (req, res) => {
 });
 
 app.post("/connectors/revoke-all", rateLimit, (req, res) => {
-  const { wallet, issuedAt, signature } = (req.body ?? {}) as { wallet?: string; issuedAt?: number; signature?: string };
-  if (!wallet || !issuedAt || !signature) { res.status(400).json({ error: "invalid_request" }); return; }
-  const message = connectorMgmtMessage({ action: "revoke-all", wallet, issuedAt });
-  const v = verifyMgmtSig({ wallet, message, signature, issuedAt });
-  if (!v.ok) { res.status(401).json({ error: "bad_signature", reason: v.reason }); return; }
-  const rows = revokeAllConnectors(wallet);
+  const body = (req.body ?? {}) as { wallet?: string; issuedAt?: number; signature?: string };
+  const a = authorizeConnectorMgmt(req, body, "revoke-all");
+  if ("status" in a) { res.status(a.status).json({ error: a.error, reason: a.reason }); return; }
+  const rows = revokeAllConnectors(a.wallet);
   for (const r of rows) if (r.kind === "oauth" && r.family) revokeFamily(r.family);
   res.json({ ok: true, revoked: rows.length });
 });

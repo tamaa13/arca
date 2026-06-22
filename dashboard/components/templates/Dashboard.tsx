@@ -4,12 +4,10 @@ import { useArca } from "@/hooks/useArca";
 import { Header } from "@/components/organisms/Header";
 import { ConnectWalletStep } from "@/components/organisms/ConnectWalletStep";
 import { CreateSessionStep } from "@/components/organisms/CreateSessionStep";
-import { DepositStep } from "@/components/organisms/DepositStep";
-import { AuthorizeStep } from "@/components/organisms/AuthorizeStep";
-import { ConnectorStep } from "@/components/organisms/ConnectorStep";
+import { ActivateStep } from "@/components/organisms/ActivateStep";
 import { ApproveStep } from "@/components/organisms/ApproveStep";
 import { UsagePanel } from "@/components/organisms/UsagePanel";
-import { ConnectedAgentsPanel } from "@/components/organisms/ConnectedAgentsPanel";
+import { YourAgentsPanel } from "@/components/organisms/YourAgentsPanel";
 
 export function Dashboard() {
   const arca = useArca();
@@ -39,12 +37,14 @@ export function Dashboard() {
 
       {arca.session?.signerAddress && <UsagePanel arca={arca} />}
 
+      {/* Progressive reveal: each step appears once the previous is done, so a first-time user
+          never faces a wall of greyed-out cards. */}
       <ConnectWalletStep arca={arca} />
-      <CreateSessionStep arca={arca} />
-      <DepositStep arca={arca} />
-      <AuthorizeStep arca={arca} />
-      {isOAuth ? <ApproveStep arca={arca} /> : <ConnectorStep arca={arca} />}
-      {!isOAuth && <ConnectedAgentsPanel arca={arca} />}
+      {arca.step1Done && <CreateSessionStep arca={arca} />}
+      {arca.step2Done && <ActivateStep arca={arca} />}
+      {isOAuth
+        ? arca.step1Done && <ApproveStep arca={arca} />
+        : arca.session?.token && <YourAgentsPanel arca={arca} />}
 
       <div className="note">
         0G Galileo testnet · registry <span className="mono">{registry}</span>

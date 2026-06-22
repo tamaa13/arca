@@ -31,6 +31,12 @@ export function ApproveStep({ arca }: { arca: ArcaApi }) {
         authorization code. Arca derives your key from your signature (never your private key);
         your memory stays encrypted to your wallet on 0G.
       </p>
+      <p className="note" style={{ marginTop: 10 }}>
+        {/* Web/OAuth users can't manage connectors on this consent screen (no bearer here). The
+            bare dashboard origin restores a real session + renders the agents manager. */}
+        Want to see or revoke your connected agents? Open the{" "}
+        <a href="/">Arca dashboard</a>.
+      </p>
     </StepCard>
   );
 }

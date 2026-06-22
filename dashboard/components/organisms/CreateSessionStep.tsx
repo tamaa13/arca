@@ -21,14 +21,12 @@ export function CreateSessionStep({ arca }: { arca: ArcaApi }) {
         </Button>
       </div>
       <StatusLine status={arca.st2} />
-      {arca.session ? (
+      {/* We deliberately DON'T surface the raw session bearer here — agents connect with their
+          own revocable per-agent tokens (see "Your agents"). Show only the signer address (the
+          deposit target). */}
+      {arca.session?.signerAddress ? (
         <div style={{ marginTop: 12 }}>
-          {/* In OAuth mode the bearer token is never exposed to the web client (it uses the
-              OAuth code/access-token instead), so only show the token outside OAuth mode. */}
-          {arca.session.token ? <KeyValue label="Token" value={arca.session.token} /> : null}
-          {arca.session.signerAddress ? (
-            <KeyValue label="Session signer" value={arca.session.signerAddress} />
-          ) : null}
+          <KeyValue label="Session signer" value={arca.session.signerAddress} />
         </div>
       ) : null}
     </StepCard>

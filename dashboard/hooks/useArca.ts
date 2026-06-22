@@ -27,7 +27,7 @@ import {
 } from "@/lib/constants";
 import { encryptToPubkey } from "@/lib/crypto";
 import { readOAuthParams, clientLabel, type OAuthParams } from "@/lib/oauth";
-import { connectorMgmtMessage, type ConnectorListing } from "@/lib/connectors";
+import type { ConnectorListing } from "@/lib/connectors";
 import type { SessionData, StatusMessage, StatusKind } from "@/lib/types";
 
 const short = (a?: string) => (a ? a.slice(0, 8) + "…" + a.slice(-6) : "");
@@ -49,8 +49,7 @@ export interface ArcaState {
   step5On: boolean;
   // button enablement
   signEnabled: boolean;
-  depositEnabled: boolean;
-  delegateEnabled: boolean;
+  depositEnabled: boolean; // "session ready → can activate the vault"
   // status lines
   st1: StatusMessage;
   st2: StatusMessage;
@@ -78,8 +77,10 @@ export interface ArcaState {
 export interface ArcaApi extends ArcaState {
   connect: () => Promise<void>;
   sign: () => Promise<void>;
-  deposit: (amount: string) => Promise<void>;
-  authorize: () => Promise<void>;
+  // Fund the signer + authorize it as a delegate in ONE action (two wallet popups, one step).
+  // Skips whichever is already done on-chain, so it's safe to re-run / run on a restored vault.
+  activate: (amount: string) => Promise<void>;
+  activating: boolean;
   disconnect: () => void;
   // connected agents
   mintConnector: (label: string) => Promise<void>;
@@ -122,7 +123,7 @@ export function useArca(): ArcaApi {
 
   const [signEnabled, setSignEnabled] = useState(false);
   const [depositEnabled, setDepositEnabled] = useState(false);
-  const [delegateEnabled, setDelegateEnabled] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   const [st1, setSt1] = useState<StatusMessage>(blank);
   const [st2, setSt2] = useState<StatusMessage>(blank);
@@ -193,7 +194,6 @@ export function useArca(): ArcaApi {
           markDone(3);
           enable(4);
           setDepositEnabled(true);
-          setDelegateEnabled(true);
           // ~0.0005 0G per save → warn under 0.01 0G (~20 saves) so the user tops up
           // BEFORE the signer runs out of gas and saves start failing.
           const low = bal < parseEther("0.01");
@@ -247,17 +247,6 @@ export function useArca(): ArcaApi {
     }
   }, [getReadProvider]);
 
-  // Ensure a wallet signer is live (the management sig needs it). After a cached-session
-  // restore the signer may be null (no re-sign happened) — lazily re-bind it from the
-  // already-connected wallet so add/revoke work without forcing a full reconnect.
-  const ensureSigner = useCallback(async (): Promise<JsonRpcSigner> => {
-    if (signerRef.current) return signerRef.current;
-    if (!window.ethereum) throw new Error("No wallet found — install MetaMask.");
-    providerRef.current = new BrowserProvider(window.ethereum);
-    signerRef.current = await providerRef.current.getSigner();
-    return signerRef.current;
-  }, []);
-
   // Load the wallet's connectors (labels/status only — no secrets). Bearer-authed.
   const refreshConnectors = useCallback(async () => {
     const token = sessionRef.current?.token;
@@ -273,36 +262,33 @@ export function useArca(): ArcaApi {
     }
   }, []);
 
-  // Mint a new per-agent connector token: the wallet signs a domain-separated EIP-191 message,
-  // the server returns the raw token ONCE (we show it, then it's unrecoverable).
+  // Mint a new per-agent connector token. Authorized by the live session bearer (no extra wallet
+  // popup — you're already signed in), so it's one click. Server returns the raw token ONCE.
   const mintConnector = useCallback(
     async (label: string) => {
       const name = label.trim();
       if (!name) {
-        setConnectorStatus({ text: "give the connector a label first", kind: "err" });
+        setConnectorStatus({ text: "give the agent a name first", kind: "err" });
         return;
       }
-      const wallet = accountRef.current;
-      if (!wallet) {
-        setConnectorStatus({ text: "connect a wallet first", kind: "err" });
+      const token = sessionRef.current?.token;
+      if (!token) {
+        setConnectorStatus({ text: "create a session first", kind: "err" });
         return;
       }
       try {
         setConnectorBusy(true);
         setNewConnectorToken(null);
-        setConnectorStatus({ text: "sign in your wallet to add the connector…", kind: "" });
-        const signer = await ensureSigner();
-        const issuedAt = Date.now();
-        const signature = await signer.signMessage(connectorMgmtMessage({ action: "add", wallet, label: name, issuedAt }));
+        setConnectorStatus({ text: "adding…", kind: "" });
         const r = await fetch("/connectors/mint", {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ wallet, label: name, issuedAt, signature }),
+          headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ label: name }),
         });
         const j = (await r.json()) as { token?: string; reason?: string; error?: string };
         if (!r.ok || !j.token) throw new Error(j.reason || j.error || "mint failed");
         setNewConnectorToken(j.token);
-        setConnectorStatus({ text: `added "${name}" ✓ — copy the token now, it is shown only once`, kind: "ok" });
+        setConnectorStatus({ text: `added "${name}" ✓ — copy the config below, the token is shown only once`, kind: "ok" });
         await refreshConnectors();
       } catch (e: unknown) {
         setConnectorStatus({ text: (e as Error)?.message || String(e), kind: "err" });
@@ -310,28 +296,26 @@ export function useArca(): ArcaApi {
         setConnectorBusy(false);
       }
     },
-    [ensureSigner, refreshConnectors],
+    [refreshConnectors],
   );
 
   // Revoke ONE connector (by opaque id). Kills only that agent's access — the others (and any
-  // web/OAuth connections) keep working. Enforced on the very next request server-side.
+  // web/OAuth connections) keep working. Authorized by the session bearer; enforced server-side
+  // on the very next request. (A fresh wallet sig is the cross-device fallback, server-side.)
   const revokeConnector = useCallback(
     async (id: string) => {
-      const wallet = accountRef.current;
-      if (!wallet) {
-        setConnectorStatus({ text: "connect a wallet first", kind: "err" });
+      const token = sessionRef.current?.token;
+      if (!token) {
+        setConnectorStatus({ text: "create a session first", kind: "err" });
         return;
       }
       try {
         setConnectorBusy(true);
-        setConnectorStatus({ text: "sign in your wallet to revoke…", kind: "" });
-        const signer = await ensureSigner();
-        const issuedAt = Date.now();
-        const signature = await signer.signMessage(connectorMgmtMessage({ action: "revoke", wallet, connectorId: id, issuedAt }));
+        setConnectorStatus({ text: "revoking…", kind: "" });
         const r = await fetch("/connectors/revoke", {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ wallet, connectorId: id, issuedAt, signature }),
+          headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ connectorId: id }),
         });
         const j = (await r.json()) as { ok?: boolean; reason?: string; error?: string };
         if (!r.ok) throw new Error(j.reason || j.error || "revoke failed");
@@ -343,7 +327,7 @@ export function useArca(): ArcaApi {
         setConnectorBusy(false);
       }
     },
-    [ensureSigner, refreshConnectors],
+    [refreshConnectors],
   );
 
   const dismissNewToken = useCallback(() => setNewConnectorToken(null), []);
@@ -611,7 +595,12 @@ export function useArca(): ArcaApi {
     }
   }, [buildAuthBody, checkChainState, enable, markDone, oauth, saveSession, setStatus]);
 
-  const deposit = useCallback(
+  // Activate the vault: fund the signer's gas tank AND authorize it as a registry delegate, in
+  // ONE step (two MetaMask popups, one mental action). Each on-chain action is SKIPPED if already
+  // done (read on-chain first), so this is safe to re-run and works on a restored/partly-set-up
+  // vault. Deposit funds an EOA; setDelegate flips a registry bool — two different targets, which
+  // is why they're two txs (a true one-tx needs a payable contract change → deferred).
+  const activate = useCallback(
     async (amount: string) => {
       const signer = signerRef.current;
       const s = sessionRef.current;
@@ -619,44 +608,45 @@ export function useArca(): ArcaApi {
         setStatus("st3", "connect a wallet first", "err");
         return;
       }
+      const read = getReadProvider();
+      const owner = s.wallet || accountRef.current || undefined;
+      setActivating(true);
       try {
-        const amt = (amount || "0.1").trim();
-        setStatus("st3", `sending ${amt} 0G to the signer…`);
-        const tx = await signer.sendTransaction({
-          to: s.signerAddress,
-          value: parseEther(amt),
-        });
-        await tx.wait();
-        setStatus("st3", `deposited ${amt} 0G ✓ (${short(tx.hash)})`, "ok");
+        // 1. Fund the signer (skip if it already holds 0G).
+        const bal = await read.getBalance(s.signerAddress);
+        if (bal === 0n) {
+          const amt = (amount || "0.1").trim();
+          setStatus("st3", `funding storage (${amt} 0G)…`);
+          const tx = await signer.sendTransaction({ to: s.signerAddress, value: parseEther(amt) });
+          await tx.wait();
+        }
         markDone(3);
         enable(4);
-        setDelegateEnabled(true);
+
+        // 2. Authorize the signer as a delegate (skip if already authorized).
+        let authed = false;
+        if (owner) {
+          const reg = new Contract(s.registry, REGISTRY_IS_DELEGATE_ABI, read);
+          authed = (await reg.isDelegate(owner, s.signerAddress)) as boolean;
+        }
+        if (!authed) {
+          setStatus("st3", "authorizing your signer…");
+          const reg = new Contract(s.registry, REGISTRY_SET_DELEGATE_ABI, signer);
+          const tx = await reg.setDelegate(s.signerAddress, true);
+          await tx.wait();
+        }
+        markDone(4);
+        enable(5);
+        setStatus("st3", "vault active ✓ — your agents can now save", "ok");
+        void refreshUsage();
       } catch (e: unknown) {
         setStatus("st3", (e as Error)?.message || String(e), "err");
+      } finally {
+        setActivating(false);
       }
     },
-    [enable, markDone, setStatus],
+    [enable, markDone, setStatus, getReadProvider, refreshUsage],
   );
-
-  const authorize = useCallback(async () => {
-    const signer = signerRef.current;
-    const s = sessionRef.current;
-    if (!signer || !s) {
-      setStatus("st4", "connect a wallet first", "err");
-      return;
-    }
-    try {
-      setStatus("st4", "authorizing in your wallet…");
-      const reg = new Contract(s.registry, REGISTRY_SET_DELEGATE_ABI, signer);
-      const tx = await reg.setDelegate(s.signerAddress, true);
-      await tx.wait();
-      setStatus("st4", `authorized ✓ (${short(tx.hash)}) — your agents can now save.`, "ok");
-      markDone(4);
-      enable(5);
-    } catch (e: unknown) {
-      setStatus("st4", (e as Error)?.message || String(e), "err");
-    }
-  }, [enable, markDone, setStatus]);
 
   const disconnect = useCallback(() => {
     localStorage.removeItem(LS_KEY);
@@ -676,7 +666,6 @@ export function useArca(): ArcaApi {
     step5On,
     signEnabled,
     depositEnabled,
-    delegateEnabled,
     st1,
     st2,
     st3,
@@ -695,8 +684,8 @@ export function useArca(): ArcaApi {
     connectorStatus,
     connect,
     sign,
-    deposit,
-    authorize,
+    activate,
+    activating,
     disconnect,
     mintConnector,
     revokeConnector,

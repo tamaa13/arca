@@ -110,6 +110,7 @@ def main():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.add_init_script(EIP1193)
+        page.on("dialog", lambda dlg: dlg.accept())  # auto-accept the revoke window.confirm
 
         # Stub the API + on-chain reads. Order: specific first.
         page.route("**/bootstrap/pubkey", lambda r: r.fulfill(status=404, body="{}"))
@@ -131,8 +132,9 @@ def main():
         page.wait_for_timeout(900)
 
         # Panel present.
-        panel = page.get_by_role("heading", name="Connected agents")
-        ok(panel.count() > 0, "Connected agents panel rendered")
+        panel = page.get_by_role("heading", name="Your agents")
+        ok(panel.count() > 0, "Your agents panel rendered")
+        ok(page.get_by_text("/mcp", exact=False).count() > 0, "endpoint URL shown")
 
         # Pre-existing web/OAuth connector listed with the Web badge.
         ok(page.get_by_text("claude.ai", exact=True).count() > 0, "web connector (claude.ai) listed")
