@@ -69,6 +69,17 @@ function hostOf(uri: string | undefined): string | null {
   try { return new URL(uri).host; } catch { return null; }
 }
 
+/** Label an OAuth connector from its DCR identity. Prefer the client_name the client registered
+ *  (e.g. claude cli sends "Claude Code (<server>)"); else a localhost redirect = a native/CLI app
+ *  ("Local app"), an https redirect = the web host. So a CLI never lands as a generic web row. */
+function oauthConnectorLabel(clientName: string | undefined, redirectUri: string | undefined): string {
+  const name = clientName?.trim();
+  if (name) return name.slice(0, 64);
+  const host = hostOf(redirectUri);
+  if (host === "localhost" || host === "127.0.0.1") return "Local app";
+  return host || "Connector";
+}
+
 const PORT = Number(process.env.ARCA_PORT ?? 8787);
 const BEARER = process.env.ARCA_BEARER ?? ""; // optional dev single-user (local key)
 const PUBLIC_URL = process.env.ARCA_PUBLIC_URL ?? `http://localhost:${PORT}`;
@@ -540,7 +551,7 @@ app.post("/token", rateLimit, (req, res) => {
       registerOauthConnector({
         wallet: oauthWallet,
         clientId: client_id,
-        label: getClient(client_id)?.client_name || hostOf(rec.redirect_uri) || "Web connector",
+        label: oauthConnectorLabel(getClient(client_id)?.client_name, rec.redirect_uri),
         family,
       });
     }
@@ -724,14 +735,33 @@ const transports: Record<string, TransportEntry> = {};
 const IDLE_TIMEOUT_MS = 10 * 60_000; // 10 min — close + drop idle transports
 const MAX_SESSIONS_PER_TOKEN = 10; // cap concurrent MCP sessions per user (anti-DoS)
 
-/** Send the RFC 9728 §5.1 401 pointing unauthenticated clients at the PR metadata (so web
- *  clients can discover the AS) + a scope hint. Used for both init and per-request auth. */
+/** Send a 401. By default it carries the RFC 9728 §5.1 WWW-Authenticate pointer so a web client
+ *  discovers the OAuth AS. BUT when a VALID connector token was presented and only its vault SESSION
+ *  is gone (RAM-only key), we OMIT that pointer + ask the user to re-sign — otherwise a static-bearer
+ *  CLI (Cursor/raw) gets pushed into the web OAuth flow just because its session lapsed. */
 function send401(req: Request, res: Response): void {
+  if (deadSessionConnector(req)) {
+    res.status(401).json({
+      error: "vault session expired — open the Arca dashboard and sign in once to re-activate it, then retry. Your token and memories are intact.",
+    });
+    return;
+  }
   res.setHeader(
     "WWW-Authenticate",
     `Bearer resource_metadata="${baseUrlOf(req)}/.well-known/oauth-protected-resource", scope="arca.memory"`,
   );
   res.status(401).json({ error: "unauthorized — present a valid Bearer token (POST /session first)" });
+}
+
+/** True iff the request carries a VALID connector token (live row, not revoked/expired) whose wallet
+ *  has NO in-RAM session — the token is fine, the vault just needs a re-sign. send401 uses this to
+ *  answer with a plain 401 (no OAuth challenge) so a static-bearer client isn't pushed into OAuth. */
+function deadSessionConnector(req: Request): boolean {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return false;
+  const row = resolveConnector(token);
+  return !!(row && !sessionForWallet(row.wallet));
 }
 
 /** Per-request re-check for an already-bound transport: the bearer MUST be present on EVERY

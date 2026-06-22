@@ -136,22 +136,23 @@ def main():
         ok(panel.count() > 0, "Your agents panel rendered")
         ok(page.get_by_text("/mcp", exact=False).count() > 0, "endpoint URL shown")
 
-        # Pre-existing web/OAuth connector listed with the Web badge.
+        # Pre-existing web/OAuth connector listed with the Sign-in badge.
         ok(page.get_by_text("claude.ai", exact=True).count() > 0, "web connector (claude.ai) listed")
-        ok(page.get_by_text("Web", exact=True).count() > 0, "web connector shows the Web badge")
+        ok(page.get_by_text("Sign-in", exact=True).count() > 0, "OAuth connector shows the Sign-in badge")
 
         # Add a CLI connector.
         page.get_by_placeholder("e.g. Codex-laptop").fill("Codex-laptop")
-        page.get_by_role("button", name="Add agent").click()
+        page.get_by_role("button", name="Add a token").click()
         page.wait_for_timeout(700)
 
         # Raw token shown ONCE.
         token_shown = page.get_by_text("arca_live_NEWTOKEN_1", exact=False).count() > 0
-        ok(token_shown, "minted token shown once after Add agent")
+        ok(token_shown, "minted token shown once after Add a token")
         ok(page.get_by_text("shown only once", exact=False).count() > 0, "one-time-copy warning shown")
 
         # New connector appears as a CLI row + Active.
-        ok(page.get_by_text("Codex-laptop", exact=True).count() > 0, "new CLI connector listed")
+        ok(page.get_by_text("Codex-laptop", exact=True).count() > 0, "new token connector listed")
+        ok(page.get_by_text("Token", exact=True).count() >= 1, "minted connector shows the Token badge")
         ok(page.get_by_text("Active", exact=True).count() == 2, "both connectors Active before revoke")
 
         # Dismiss the token banner.

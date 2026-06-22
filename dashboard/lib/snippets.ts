@@ -1,6 +1,34 @@
-// Connector snippets per platform — every client needs the SAME two things:
-// the URL (connectorUrl) + an `Authorization: Bearer <token>` header. Only the format differs.
+// Connector snippets per platform. Two connect methods:
+//  - "signin" (OAuth): add the endpoint URL; the client opens the Arca dashboard and you approve by
+//    signing with your wallet. NO token to paste. This is how Claude / Cursor / opencode connect.
+//  - "token" (static bearer): mint a per-agent token and paste it with the URL. For clients without
+//    a sign-in flow (Codex, raw HTTP MCP).
 import type { Platform } from "./constants";
+
+/** Best-known connect method per client. A "signin" client that turns out to lack OAuth can always
+ *  fall back to the token method (the panel offers both). Verified: Claude Code uses sign-in (OAuth). */
+export const PLATFORM_AUTH: Record<Platform, "signin" | "token"> = {
+  claude: "signin",
+  cursor: "signin",
+  opencode: "signin",
+  codex: "token",
+  antigravity: "token",
+  other: "token",
+};
+
+/** Sign-in (OAuth) connect: add the URL, then approve via a wallet sign-in. No token. */
+export function signInSnippet(url: string, platform: Platform): string {
+  switch (platform) {
+    case "claude":
+      return `# Claude Code — one command, then sign in to approve:\nclaude mcp add arca --transport http ${url}\n\n# Claude opens the Arca sign-in page — connect your wallet + sign once to approve.\n# No token to paste.`;
+    case "cursor":
+      return `// ~/.cursor/mcp.json\n{\n  "mcpServers": {\n    "arca": { "url": "${url}" }\n  }\n}\n// Cursor opens the Arca sign-in to approve — connect wallet + sign.`;
+    case "opencode":
+      return `// opencode.json (project root) — or ~/.config/opencode/opencode.json\n{\n  "$schema": "https://opencode.ai/config.json",\n  "mcp": {\n    "arca": { "type": "remote", "url": "${url}", "enabled": true }\n  }\n}\n// Sign in at the Arca dashboard to approve.`;
+    default:
+      return `Add this URL to your client, then sign in at the Arca dashboard to approve:\n  ${url}`;
+  }
+}
 
 export function snippets(connectorUrl: string, token: string): Record<Platform, string> {
   const url = connectorUrl;

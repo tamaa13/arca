@@ -6,7 +6,8 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { KeyValue } from "@/components/atoms/KeyValue";
 import { ConnectorTabs } from "@/components/molecules/ConnectorTabs";
-import { snippets } from "@/lib/snippets";
+import { snippets, signInSnippet, PLATFORM_AUTH } from "@/lib/snippets";
+import { platformLabel } from "@/lib/snippets";
 import type { Platform } from "@/lib/constants";
 import type { ArcaApi } from "@/hooks/useArca";
 import type { ConnectorListing } from "@/lib/connectors";
@@ -20,21 +21,22 @@ function statusOf(c: ConnectorListing): { text: string; color?: string } {
   return { text: "Active", color: "var(--ok)" };
 }
 
-// The SINGLE place to connect + manage agents. Pick your CLI platform, name the agent, and get a
-// paste-ready config carrying that agent's OWN revocable token — so a compromised agent can be
-// revoked alone. Web apps (Claude.ai / ChatGPT) connect via OAuth (see the note) and appear in the
-// list too. CLI tabs only: web has no token to paste, so it isn't a tab.
+// The SINGLE place to connect + manage agents. Two methods, picked per client:
+//  - Sign-in (Claude / Cursor / opencode): add the URL → approve by signing. No token.
+//  - Token (Codex / raw HTTP): mint a per-agent token and paste it.
+// Both appear in the list, each individually revocable. Web apps connect via sign-in too.
 export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
   const [platform, setPlatform] = useState<Platform>("claude");
   const [label, setLabel] = useState("");
   const d = arca.session;
   if (!d?.token) return null;
 
+  const isSignin = PLATFORM_AUTH[platform] === "signin";
   const ready = arca.step3Done && arca.step4Done; // funded AND authorized = saves will work
   const list = arca.connectors ?? [];
-  // After a successful mint, render the SELECTED platform's snippet carrying the new token. The
-  // token is platform-agnostic — switching tabs just reformats the same token for that client.
-  const snippet = arca.newConnectorToken ? snippets(d.connectorUrl, arca.newConnectorToken)[platform] : null;
+  // After minting, render the platform's TOKEN config carrying the new token (for token clients,
+  // or as the sign-in fallback). The token is platform-agnostic — switching tabs reformats it.
+  const tokenSnippet = arca.newConnectorToken ? snippets(d.connectorUrl, arca.newConnectorToken)[platform] : null;
 
   const onAdd = async () => {
     await arca.mintConnector(label);
@@ -50,13 +52,13 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
     <section className="step on" style={{ marginBottom: 18 }}>
       <h2>Your agents</h2>
       <p>
-        Connect any agent to your one vault. Each gets its own revocable token — if one is
-        compromised, revoke just that one; the rest keep working.
+        Connect any agent to your one vault. Most clients connect by <strong>signing in</strong> (no token);
+        some use a token. Each connection is revocable on its own — if one is compromised, kill just that one.
       </p>
 
       {!ready && (
         <p className="note" style={{ color: "var(--accent)", marginTop: 14 }}>
-          ⚠ Activate your vault first (step above). You can add agents now, but they can&apos;t save
+          ⚠ Activate your vault first (step above). You can connect agents now, but they can&apos;t save
           until your vault is funded + authorized.
         </p>
       )}
@@ -64,10 +66,24 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
       <KeyValue label="Endpoint" value={d.connectorUrl} style={{ marginTop: 14 }} />
       <ConnectorTabs active={platform} onSelect={setPlatform} />
 
-      <p className="note" style={{ marginTop: 10 }}>
-        Name this agent and add it — you get a ready-to-paste config with its own token. Nothing to
-        install (it&apos;s a remote MCP).
-      </p>
+      {isSignin ? (
+        <>
+          <p className="note" style={{ marginTop: 10 }}>
+            Add this to {platformLabel(platform)} — it opens the Arca sign-in → connect your wallet + sign once
+            to approve. <strong>No token to paste.</strong>
+          </p>
+          <CodeBlock code={signInSnippet(d.connectorUrl, platform)} copyable />
+          <p className="note" style={{ marginTop: 10 }}>
+            {platformLabel(platform)} doesn&apos;t support sign-in? Mint a token instead ↓
+          </p>
+        </>
+      ) : (
+        <p className="note" style={{ marginTop: 10 }}>
+          {platformLabel(platform)} connects with a token. Name it, add it, and paste the config below.
+        </p>
+      )}
+
+      {/* Mint a per-agent token — primary for token clients, fallback for sign-in clients */}
       <div className="row">
         <Input
           type="text"
@@ -80,15 +96,15 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
           style={{ width: 200 }}
         />
         <Button onClick={onAdd} disabled={arca.connectorBusy || !label.trim()}>
-          {arca.connectorBusy ? "…" : "Add agent"}
+          {arca.connectorBusy ? "…" : "Add a token"}
         </Button>
       </div>
-      {snippet && (
+      {tokenSnippet && (
         <div style={{ marginTop: 12 }}>
           <p className="note" style={{ color: "var(--accent)", marginTop: 0 }}>
             ⚠ Copy this now — the token is shown only once and cannot be recovered.
           </p>
-          <CodeBlock code={snippet} copyable />
+          <CodeBlock code={tokenSnippet} copyable />
           <div className="row">
             <Button variant="ghost" onClick={arca.dismissNewToken}>
               Done — I&apos;ve copied it
@@ -98,8 +114,8 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
       )}
 
       <p className="note" style={{ marginTop: 14 }}>
-        Using a web app (Claude.ai / ChatGPT)? Add the endpoint above as a custom connector and sign
-        once — it appears in the list below automatically, revocable like any other.
+        Web app (Claude.ai / ChatGPT)? Add the endpoint above as a custom connector and sign in — it appears
+        in the list below automatically, revocable like any other.
       </p>
 
       {/* connected agents list */}
@@ -107,7 +123,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
         <p className="note" style={{ marginTop: 16 }}>loading…</p>
       ) : list.length === 0 ? (
         <p className="note" style={{ marginTop: 16 }}>
-          No agents connected yet — add one above, or connect a web app (it appears here automatically).
+          No agents connected yet — connect one above (sign-in or token).
         </p>
       ) : (
         <div style={{ marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 4 }}>
@@ -133,7 +149,7 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
                       className="mono"
                       style={{ fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)", border: "1px solid var(--line-strong)", padding: "1px 5px" }}
                     >
-                      {c.kind === "oauth" ? "Web" : "CLI"}
+                      {c.kind === "oauth" ? "Sign-in" : "Token"}
                     </span>
                   </div>
                   <div className="mono" style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
