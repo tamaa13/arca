@@ -16,8 +16,8 @@ export function CreateSessionStep({ arca }: { arca: ArcaApi }) {
       done={arca.step2Done}
     >
       <div className="row">
-        <Button onClick={arca.sign} disabled={!arca.signEnabled}>
-          Sign &amp; create session
+        <Button onClick={arca.sign} disabled={!arca.signEnabled || arca.step2Done || arca.signing}>
+          {arca.step2Done ? "Session created ✓" : arca.signing ? "Signing…" : "Sign & create session"}
         </Button>
       </div>
       <StatusLine status={arca.st2} />

@@ -43,6 +43,42 @@ function clientToSigner(client: Client<Transport, Chain, Account>) {
   return new JsonRpcSigner(provider, account.address);
 }
 
+// Map any wallet / RPC / ethers error to a clean one-line message — never a raw JSON dump in the UI.
+function friendlyError(e: unknown): string {
+  const err = (e ?? {}) as { code?: string | number; shortMessage?: string; reason?: string; message?: string };
+  const code = err.code;
+  const low = `${err.shortMessage ?? err.reason ?? err.message ?? String(e)}`.toLowerCase();
+  if (
+    code === 4001 || code === "ACTION_REJECTED" ||
+    low.includes("user rejected") || low.includes("user denied") ||
+    low.includes("rejected the request") || low.includes("ethers-user-denied")
+  ) {
+    return "Request cancelled in your wallet.";
+  }
+  if (
+    code === "INSUFFICIENT_FUNDS" ||
+    low.includes("insufficient funds") || low.includes("insufficient balance") || low.includes("exceeds the balance")
+  ) {
+    return "Not enough 0G in your wallet — top up and try again.";
+  }
+  if (low.includes("cannot estimate gas") || low.includes("execution reverted") || low.includes("unpredictable_gas")) {
+    return "The transaction couldn't go through on-chain — check your balance and try again.";
+  }
+  if (low.includes("chain") && (low.includes("mismatch") || low.includes("unsupported"))) {
+    return "Wrong network — switch your wallet to the right 0G network.";
+  }
+  if (
+    code === "NETWORK_ERROR" || code === "TIMEOUT" ||
+    low.includes("timeout") || low.includes("network error") || low.includes("failed to fetch") ||
+    low.includes("could not coalesce") || low.includes("server_error")
+  ) {
+    return "Network hiccup — please try again.";
+  }
+  // fallback: short + cleaned (strip the "(action=…)" detail + any JSON blob)
+  const clean = (err.shortMessage ?? err.reason ?? err.message ?? "").split("(")[0].split("{")[0].trim();
+  return clean && clean.length <= 120 ? clean : "Something went wrong — please try again.";
+}
+
 type StatusKey = "st1" | "st2" | "st3" | "st4";
 
 export interface ArcaState {
@@ -60,6 +96,7 @@ export interface ArcaState {
   step5On: boolean;
   // button enablement
   signEnabled: boolean;
+  signing: boolean; // a sign/session request is in flight
   depositEnabled: boolean; // "session ready → can activate the vault"
   // status lines
   st1: StatusMessage;
@@ -139,6 +176,7 @@ export function useArca(): ArcaApi {
   const [step5On, setStep5On] = useState(false);
 
   const [signEnabled, setSignEnabled] = useState(false);
+  const [signing, setSigning] = useState(false);
   const [depositEnabled, setDepositEnabled] = useState(false);
   const [activating, setActivating] = useState(false);
 
@@ -314,7 +352,7 @@ export function useArca(): ArcaApi {
         setConnectorStatus({ text: `added "${name}" ✓ — copy the config below, the token is shown only once`, kind: "ok" });
         await refreshConnectors();
       } catch (e: unknown) {
-        setConnectorStatus({ text: (e as Error)?.message || String(e), kind: "err" });
+        setConnectorStatus({ text: friendlyError(e), kind: "err" });
       } finally {
         setConnectorBusy(false);
       }
@@ -345,7 +383,7 @@ export function useArca(): ArcaApi {
         setConnectorStatus({ text: "revoked ✓ — that agent can no longer read or write your vault", kind: "ok" });
         await refreshConnectors();
       } catch (e: unknown) {
-        setConnectorStatus({ text: (e as Error)?.message || String(e), kind: "err" });
+        setConnectorStatus({ text: friendlyError(e), kind: "err" });
       } finally {
         setConnectorBusy(false);
       }
@@ -506,7 +544,7 @@ export function useArca(): ArcaApi {
       enable(2);
       setSignEnabled(true);
     } catch (e: unknown) {
-      setStatus("st1", (e as Error)?.message || String(e), "err");
+      setStatus("st1", friendlyError(e), "err");
     }
   }, [ensureGalileo, enable, markDone, setStatus]);
 
@@ -539,6 +577,8 @@ export function useArca(): ArcaApi {
       setStatus("st2", "connect a wallet first", "err");
       return;
     }
+    if (sessionRef.current) return; // already signed — don't re-create a session
+    setSigning(true);
     try {
       setStatus("st2", "sign the message in your wallet…");
       const signature = await signer.signTypedData(DOMAIN, TYPES, MESSAGE);
@@ -613,7 +653,9 @@ export function useArca(): ArcaApi {
       saveSession();
       await checkChainState(data); // reflect already-done deposit/authorize (any device)
     } catch (e: unknown) {
-      setStatus("st2", (e as Error)?.message || String(e), "err");
+      setStatus("st2", friendlyError(e), "err");
+    } finally {
+      setSigning(false);
     }
   }, [buildAuthBody, checkChainState, enable, markDone, oauth, saveSession, setStatus]);
 
@@ -652,8 +694,28 @@ export function useArca(): ArcaApi {
         const bal = await read.getBalance(s.signerAddress);
         if (bal === 0n) {
           const amt = (amount || "0.1").trim();
+          let amtWei: bigint;
+          try {
+            amtWei = parseEther(amt);
+          } catch {
+            setStatus("st3", "Enter a valid amount (e.g. 0.1).", "err");
+            return;
+          }
+          // The wallet pays the deposit + gas — pre-check it can cover it, with a clean message
+          // (instead of letting the wallet pop a raw "insufficient funds" failure).
+          if (owner) {
+            const walletBal = await read.getBalance(owner).catch(() => null);
+            if (walletBal !== null && walletBal < amtWei + parseEther("0.001")) {
+              setStatus(
+                "st3",
+                `Not enough 0G in your wallet (${Number(formatEther(walletBal)).toFixed(4)} 0G) — top up at least ${amt} 0G + a little gas, then try again.`,
+                "err",
+              );
+              return;
+            }
+          }
           setStatus("st3", `funding storage (${amt} 0G)…`);
-          const tx = await signer.sendTransaction({ to: s.signerAddress, value: parseEther(amt) });
+          const tx = await signer.sendTransaction({ to: s.signerAddress, value: amtWei });
           await tx.wait();
         }
         markDone(3);
@@ -676,7 +738,7 @@ export function useArca(): ArcaApi {
         setStatus("st3", "vault active ✓ — your agents can now save", "ok");
         void refreshUsage();
       } catch (e: unknown) {
-        setStatus("st3", (e as Error)?.message || String(e), "err");
+        setStatus("st3", friendlyError(e), "err");
       } finally {
         setActivating(false);
       }
@@ -686,7 +748,7 @@ export function useArca(): ArcaApi {
 
   const disconnect = useCallback(() => {
     localStorage.removeItem(LS_KEY);
-    void disconnectAsync().finally(() => location.reload());
+    void disconnectAsync().catch(() => {}).finally(() => location.reload());
   }, [disconnectAsync]);
 
   return {
@@ -701,6 +763,7 @@ export function useArca(): ArcaApi {
     step4On,
     step5On,
     signEnabled,
+    signing,
     depositEnabled,
     st1,
     st2,
