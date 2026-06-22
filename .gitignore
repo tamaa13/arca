@@ -5,3 +5,6 @@ dist/
 *.log
 .DS_Store
 arca-server
+
+# internal planning — local only, not public
+BUILD_PLAN*.md

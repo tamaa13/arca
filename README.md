@@ -81,4 +81,4 @@ src/types.ts    shared contracts
 
 ## License
 
-[MIT](LICENSE) © s0nderlabs. Free to use, modify, and distribute.
+[MIT](LICENSE) — free to use, modify, and distribute.

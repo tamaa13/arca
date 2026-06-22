@@ -26,7 +26,6 @@ import {
   REGISTRY_IS_DELEGATE_ABI,
   REGISTRY_SET_DELEGATE_ABI,
   REGISTRY_ROOT_COUNT_ABI,
-  EXPLORER,
 } from "@/lib/constants";
 import { encryptToPubkey } from "@/lib/crypto";
 import { readOAuthParams, clientLabel, type OAuthParams } from "@/lib/oauth";
@@ -776,7 +775,9 @@ export function useArca(): ArcaApi {
     balance,
     saveCount,
     lowBalance,
-    signerExplorerUrl: session?.signerAddress ? `${EXPLORER}/address/${session.signerAddress}` : null,
+    signerExplorerUrl: session?.signerAddress
+      ? `${(session.chainId === zgMainnet.id ? zgMainnet : zgTestnet).blockExplorers.default.url}/address/${session.signerAddress}`
+      : null,
     connectors,
     newConnectorToken,
     connectorBusy,
