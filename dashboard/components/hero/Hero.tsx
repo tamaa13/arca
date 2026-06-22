@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { EASE } from "@/lib/motion";
-import { HeroCanvas } from "./HeroCanvas";
+import { OsScene } from "./os/OsScene";
 
 const lineVariants = {
   hidden: { opacity: 0, y: 26, filter: "blur(8px)" },
@@ -123,7 +123,7 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.9, ease: EASE }}
         className="mx-auto mt-12 w-full px-2 pb-4 sm:mt-14"
       >
-        <HeroCanvas />
+        <OsScene />
       </motion.div>
     </section>
   );
