@@ -3,6 +3,7 @@ import { Geist_Mono, Playfair_Display, Space_Grotesk } from "next/font/google";
 import { MotionProvider } from "@/components/MotionProvider";
 import { PaperNoise } from "@/components/PaperNoise";
 import { IntroOverlay } from "@/components/IntroOverlay";
+import { ConsentProvider } from "@/components/consent/ConsentProvider";
 import { SoundProvider } from "@/components/sound/SoundProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
@@ -42,15 +43,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeScript />
       </head>
       <body>
-        <ThemeProvider>
-          <SoundProvider>
-            <MotionProvider>
-              <PaperNoise />
-              <IntroOverlay />
-              {children}
-            </MotionProvider>
-          </SoundProvider>
-        </ThemeProvider>
+        <ConsentProvider>
+          <ThemeProvider>
+            <SoundProvider>
+              <MotionProvider>
+                <PaperNoise />
+                <IntroOverlay />
+                {children}
+              </MotionProvider>
+            </SoundProvider>
+          </ThemeProvider>
+        </ConsentProvider>
       </body>
     </html>
   );

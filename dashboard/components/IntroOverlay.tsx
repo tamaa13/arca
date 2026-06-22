@@ -1,20 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { useSound } from "@/components/sound/SoundProvider";
+import { useCallback, useEffect, useState } from "react";
+import { useConsent, type ConsentCategories } from "@/components/consent/ConsentProvider";
 import { EASE } from "@/lib/motion";
 
 const SOFT = [0.16, 1, 0.3, 1] as const; // expressive ease-out for the zoom + settle
 const ARCA_BIG = 86; // loading hero size (px); the scale-in makes it fill the screen
-const ARCA_REST = 34; // size once it settles into the choose panel
+const ARCA_REST = 34; // size once it settles into the panel
 
-// First-visit intro: ARCA zooms in from full-screen, then SHRINKS in place into a panel
-// to accept/decline cookies + opt into ambient sound (once per browser). Skipped for OAuth.
+// First-visit intro (landing only): ARCA zooms in from full-screen, then SHRINKS in place
+// into a real cookie-consent panel (essential / preferences / analytics). Skipped for OAuth.
 export function IntroOverlay() {
-  const { setSoundOn } = useSound();
+  const { save } = useConsent();
   const [phase, setPhase] = useState<"init" | "loading" | "choose" | "done">("init");
-  const [soundChoice, setSoundChoice] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -31,6 +30,15 @@ export function IntroOverlay() {
     return () => clearTimeout(t);
   }, []);
 
+  const finish = useCallback(
+    (cats: ConsentCategories) => {
+      save(cats); // record real consent
+      if (typeof window !== "undefined") window.localStorage.setItem("arca-entered", "1");
+      setPhase("done");
+    },
+    [save],
+  );
+
   const loading = phase === "loading";
   const visible = phase === "loading" || phase === "choose";
 
@@ -44,8 +52,6 @@ export function IntroOverlay() {
     const prevBody = body.style.overflow;
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
-    // Lenis is created by MotionProvider (a parent → its effect runs after this one),
-    // so stop it now and again next frame once it exists.
     const stop = () => window.__lenis?.stop();
     stop();
     const raf = requestAnimationFrame(stop);
@@ -57,15 +63,6 @@ export function IntroOverlay() {
     };
   }, [visible]);
 
-  const enter = (cookies: boolean) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("arca-entered", "1");
-      window.localStorage.setItem("arca-cookies", cookies ? "accepted" : "declined");
-    }
-    setSoundOn(soundChoice); // this click is the user gesture that lets audio start
-    setPhase("done");
-  };
-
   return (
     <AnimatePresence>
       {visible && (
@@ -73,11 +70,9 @@ export function IntroOverlay() {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: EASE }}
-          // Same ambient wash as the landing → matches 1:1 in light + dark, no muddy tint.
           className="ambient-wash fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-6"
         >
           <div className="relative flex w-full max-w-[460px] flex-col items-center gap-7 text-center">
-            {/* One ARCA the whole time — zooms in, then settles smaller into the panel. */}
             <motion.span
               initial={{ opacity: 0, scale: 3.3, letterSpacing: "0.62em" }}
               animate={{ opacity: 1, scale: 1, letterSpacing: "0.2em", fontSize: loading ? ARCA_BIG : ARCA_REST }}
@@ -123,12 +118,7 @@ export function IntroOverlay() {
                   </span>
                 </motion.div>
               ) : (
-                <Choose
-                  key="choose"
-                  soundChoice={soundChoice}
-                  setSoundChoice={setSoundChoice}
-                  onEnter={enter}
-                />
+                <ConsentChoice key="choose" onFinish={finish} />
               )}
             </AnimatePresence>
           </div>
@@ -138,18 +128,10 @@ export function IntroOverlay() {
   );
 }
 
-function Choose({
-  soundChoice,
-  setSoundChoice,
-  onEnter,
-}: {
-  soundChoice: boolean;
-  setSoundChoice: (v: boolean) => void;
-  onEnter: (cookies: boolean) => void;
-}) {
-  // borderRadius is set inline because the global unlayered `button { border-radius: 0 }`
-  // would otherwise square these off (it beats Tailwind's rounded-full utility).
-  const pill = { borderRadius: 9999 } as const;
+const pill = { borderRadius: 9999 } as const;
+
+function ConsentChoice({ onFinish }: { onFinish: (c: ConsentCategories) => void }) {
+  const [local, setLocal] = useState<ConsentCategories>({ preferences: true, analytics: false });
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -162,9 +144,8 @@ function Choose({
         user-owned memory · on 0G
       </p>
 
-      {/* One consent card: sound row → note → decline / accept side by side. */}
       <div
-        className="w-full max-w-[384px] p-5 text-left sm:p-6"
+        className="w-full max-w-[400px] p-5 text-left sm:p-6"
         style={{
           borderRadius: 18,
           border: "1px solid var(--color-border)",
@@ -174,64 +155,102 @@ function Choose({
           boxShadow: "var(--shadow-card)",
         }}
       >
-        <div className="flex items-center justify-between">
-          <span className="font-mono-x text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--color-ink-2)" }}>
-            ambient sound
-          </span>
-          <button
-            onClick={() => setSoundChoice(!soundChoice)}
-            aria-pressed={soundChoice}
-            aria-label="Toggle ambient sound"
-            className="relative inline-block shrink-0 transition-colors duration-200"
-            // padding:0 + explicit geometry so the global `button{padding:12px 22px}` can't
-            // shove the absolute knob past the track edge.
-            style={{
-              width: 40,
-              height: 22,
-              padding: 0,
-              border: "none",
-              borderRadius: 9999,
-              background: soundChoice ? "var(--color-accent)" : "var(--color-border-strong)",
-            }}
-          >
-            <span
-              className="absolute bg-white transition-transform duration-200"
-              style={{
-                top: 3,
-                left: 3,
-                width: 16,
-                height: 16,
-                borderRadius: 9999,
-                transform: soundChoice ? "translateX(18px)" : "translateX(0)",
-              }}
-            />
-          </button>
-        </div>
-
-        <div className="my-4 h-px w-full" style={{ background: "var(--color-border)" }} />
-
-        <p className="font-mono-x text-[10.5px] leading-[1.7]" style={{ color: "var(--color-ink-3)" }}>
-          We use a couple of cookies for your wallet session. Ambient sound is optional — toggle it anytime
-          from the navbar.
+        <p className="font-mono-x text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--color-ink-2)" }}>
+          cookies &amp; privacy
         </p>
+
+        <div className="mt-3 divide-y" style={{ borderColor: "var(--color-border)" }}>
+          <Row title="Essential" desc="Wallet sign-in & your session." locked on />
+          <Row
+            title="Preferences"
+            desc="Remembers theme & ambient sound."
+            on={local.preferences}
+            onToggle={() => setLocal((s) => ({ ...s, preferences: !s.preferences }))}
+          />
+          <Row
+            title="Analytics"
+            desc="Anonymous usage. None wired up yet."
+            on={local.analytics}
+            onToggle={() => setLocal((s) => ({ ...s, analytics: !s.analytics }))}
+          />
+        </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2.5">
           <button
-            onClick={() => onEnter(false)}
+            onClick={() => onFinish({ preferences: false, analytics: false })}
             className="py-2.5 font-mono-x text-[12px] transition-opacity duration-200 hover:opacity-75"
             style={{ ...pill, background: "transparent", border: "1px solid var(--color-border-strong)", color: "var(--color-ink-2)" }}
           >
-            decline
+            essential only
           </button>
           <button
-            onClick={() => onEnter(true)}
+            onClick={() => onFinish({ preferences: true, analytics: true })}
             className="whitespace-nowrap py-2.5 font-mono-x text-[12px] transition-opacity duration-200 hover:opacity-90"
             style={{ ...pill, background: "var(--color-ink)", color: "var(--color-cream)", border: "1px solid var(--color-ink)" }}
           >
-            accept &amp; enter
+            accept all
           </button>
         </div>
+        <button
+          onClick={() => onFinish(local)}
+          className="mt-3 w-full text-center font-mono-x text-[11px] transition-opacity duration-200 hover:opacity-70"
+          style={{ background: "transparent", border: "none", color: "var(--color-ink-3)" }}
+        >
+          save my choices &amp; enter →
+        </button>
       </div>
     </motion.div>
+  );
+}
+
+function Row({
+  title,
+  desc,
+  on,
+  onToggle,
+  locked,
+}: {
+  title: string;
+  desc: string;
+  on: boolean;
+  onToggle?: () => void;
+  locked?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div>
+        <p className="font-mono-x text-[12px] uppercase tracking-[0.1em]" style={{ color: "var(--color-ink)" }}>
+          {title}
+        </p>
+        <p className="mt-1 font-mono-x text-[10.5px] leading-[1.5]" style={{ color: "var(--color-ink-3)" }}>
+          {desc}
+        </p>
+      </div>
+      {locked ? (
+        <span className="shrink-0 font-mono-x text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--color-ink-3)" }}>
+          on
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={on}
+          className="relative inline-block shrink-0 transition-colors duration-200"
+          style={{
+            width: 40,
+            height: 22,
+            padding: 0,
+            border: "none",
+            borderRadius: 9999,
+            background: on ? "var(--color-accent)" : "var(--color-border-strong)",
+          }}
+        >
+          <span
+            className="absolute bg-white transition-transform duration-200"
+            style={{ top: 3, left: 3, width: 16, height: 16, borderRadius: 9999, transform: on ? "translateX(18px)" : "translateX(0)" }}
+          />
+        </button>
+      )}
+    </div>
   );
 }

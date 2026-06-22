@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useConsent } from "@/components/consent/ConsentProvider";
 import { THEME_STORAGE_KEY } from "./constants";
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -59,6 +60,7 @@ function applyDocumentTheme(theme: ThemeMode) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const { allow } = useConsent();
   const [theme, setThemeState] = useState<ThemeMode>("system");
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
 
@@ -81,12 +83,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mql.removeEventListener("change", handler);
   }, [theme]);
 
-  const setTheme = useCallback((next: ThemeMode) => {
-    setThemeState(next);
-    if (typeof window !== "undefined") window.localStorage.setItem(THEME_STORAGE_KEY, next);
-    setResolved(resolveTheme(next));
-    applyDocumentTheme(next);
-  }, []);
+  const setTheme = useCallback(
+    (next: ThemeMode) => {
+      setThemeState(next);
+      // Persist the theme only with preference-cookie consent; otherwise it's session-only.
+      if (typeof window !== "undefined" && allow("preferences")) window.localStorage.setItem(THEME_STORAGE_KEY, next);
+      setResolved(resolveTheme(next));
+      applyDocumentTheme(next);
+    },
+    [allow],
+  );
 
   const value = useMemo(() => ({ theme, resolved, setTheme }), [theme, resolved, setTheme]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
