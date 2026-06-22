@@ -78,3 +78,7 @@ src/mcp/        MCP server (save_memory / recall_memory)
 src/cli/        `arca init`
 src/types.ts    shared contracts
 ```
+
+## License
+
+[MIT](LICENSE) © s0nderlabs. Free to use, modify, and distribute.

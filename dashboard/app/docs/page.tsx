@@ -188,7 +188,7 @@ export default function DocsPage() {
                 />
                 <P>
                   <span className="font-mono-x text-[12px] text-[var(--color-ink-3)]">
-                    The live app currently runs on 0G Galileo testnet. Mainnet contracts are deployed + proven.
+                    The live app runs on 0G Aristotle mainnet. Both networks&apos; contracts are deployed + proven.
                   </span>
                 </P>
               </Doc>

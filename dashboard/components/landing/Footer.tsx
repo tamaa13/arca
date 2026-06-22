@@ -19,7 +19,12 @@ export function Footer() {
         >
           cookie settings
         </button>
-        <span>{zeroG("0G Galileo · testnet")}</span>
+        <a href="https://github.com/tamaa13/arca" target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--color-ink)]">
+          github
+        </a>
+        <a href="https://github.com/tamaa13/arca/blob/main/LICENSE" target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--color-ink)]">
+          MIT
+        </a>
       </span>
     </footer>
   );

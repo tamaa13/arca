@@ -18,6 +18,7 @@ export function AppDashboard() {
   const arca = useArca();
   const registry = arca.session?.registry ?? "—";
   const isOAuth = !!arca.oauth;
+  const netName = arca.session?.chainId === 16661 ? "Aristotle mainnet" : arca.session?.chainId === 16602 ? "Galileo testnet" : "0G";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -70,7 +71,7 @@ export function AppDashboard() {
         {!isOAuth && arca.session?.token && <YourAgentsPanel arca={arca} />}
 
         <div className="note">
-          <ZeroG /> Galileo testnet · registry <span className="mono">{registry}</span>
+          {netName} · registry <span className="mono">{registry}</span>
         </div>
       </main>
       <Footer />

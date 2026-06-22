@@ -1,6 +1,7 @@
 {
   "name": "arca-dashboard",
   "version": "0.0.1",
+  "license": "MIT",
   "private": true,
   "description": "Arca dashboard — connect wallet, sign, deposit, authorize, connect agents. Next.js 15 (App Router, static export).",
   "type": "module",

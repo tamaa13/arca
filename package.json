@@ -1,6 +1,7 @@
 {
   "name": "arca",
   "version": "0.0.1",
+  "license": "MIT",
   "description": "Arca — user-owned, cross-agent persistent memory on 0G. Save/recall via MCP; encrypted, you hold the key, un-ruggable once anchored.",
   "type": "module",
   "bin": {
