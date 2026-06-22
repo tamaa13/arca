@@ -1,7 +1,9 @@
 "use client";
 
 import { useArca } from "@/hooks/useArca";
-import { Header } from "@/components/organisms/Header";
+import { Navbar } from "@/components/organisms/Navbar";
+import { Hero } from "@/components/hero/Hero";
+import { Reveal } from "@/components/Reveal";
 import { ConnectWalletStep } from "@/components/organisms/ConnectWalletStep";
 import { CreateSessionStep } from "@/components/organisms/CreateSessionStep";
 import { ActivateStep } from "@/components/organisms/ActivateStep";
@@ -15,49 +17,52 @@ export function Dashboard() {
   const isOAuth = !!arca.oauth;
 
   return (
-    <div className="wrap">
-      <Header />
+    <>
+      <Navbar />
+      {!isOAuth && <Hero />}
 
-      <h1>{isOAuth ? "Connect your vault." : "Open your vault."}</h1>
-      <p className="lede">
+      {/* Functional column. The hero CTA scrolls here. */}
+      <div className="wrap" id="connect" style={isOAuth ? { paddingTop: 96 } : undefined}>
+        <Reveal>
+          <h1>{isOAuth ? "Connect your vault." : "Open your vault."}</h1>
+          <p className="lede">
+            {isOAuth ? (
+              <>
+                <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca vault.
+                Connect your wallet and sign to approve — Arca derives your key from that signature
+                (never your private key) and encrypts your memory to your wallet on 0G, recoverable
+                with your wallet alone.
+              </>
+            ) : (
+              <>
+                Connect your wallet, fund a little storage, and point any agent at one vault. Your memory
+                is encrypted to your wallet and stored on 0G — yours alone.
+              </>
+            )}
+          </p>
+        </Reveal>
+
+        {arca.session?.signerAddress && <UsagePanel arca={arca} />}
+
+        {/* Progressive reveal: each step appears once the previous is done. */}
+        <ConnectWalletStep arca={arca} />
+        {arca.step1Done && <CreateSessionStep arca={arca} />}
         {isOAuth ? (
           <>
-            <strong>{arca.oauthClient ?? "An app"}</strong> wants to connect to your Arca vault.
-            Connect your wallet and sign to approve — Arca derives your key from that signature
-            (never your private key) and encrypts your memory to your wallet on 0G, recoverable
-            with your wallet alone.
+            {arca.step2Done && <ApproveStep arca={arca} n={3} />}
+            {arca.step2Done && <ActivateStep arca={arca} n={4} optional />}
           </>
         ) : (
           <>
-            Connect your wallet, fund a little storage, and point any agent at one vault. Your memory
-            is encrypted to your wallet and stored on 0G — yours alone.
+            {arca.step2Done && <ActivateStep arca={arca} />}
+            {arca.session?.token && <YourAgentsPanel arca={arca} />}
           </>
         )}
-      </p>
 
-      {arca.session?.signerAddress && <UsagePanel arca={arca} />}
-
-      {/* Progressive reveal: each step appears once the previous is done, so a first-time user
-          never faces a wall of greyed-out cards. */}
-      <ConnectWalletStep arca={arca} />
-      {arca.step1Done && <CreateSessionStep arca={arca} />}
-      {isOAuth ? (
-        // Web consent: APPROVE is the action (server never requires funding to connect). Funding
-        // is demoted to an optional step BELOW — "fund before your first save", not to connect.
-        <>
-          {arca.step2Done && <ApproveStep arca={arca} n={3} />}
-          {arca.step2Done && <ActivateStep arca={arca} n={4} optional />}
-        </>
-      ) : (
-        <>
-          {arca.step2Done && <ActivateStep arca={arca} />}
-          {arca.session?.token && <YourAgentsPanel arca={arca} />}
-        </>
-      )}
-
-      <div className="note">
-        0G Galileo testnet · registry <span className="mono">{registry}</span>
+        <div className="note">
+          0G Galileo testnet · registry <span className="mono">{registry}</span>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
