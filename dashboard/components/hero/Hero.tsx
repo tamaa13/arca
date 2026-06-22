@@ -26,16 +26,6 @@ export function Hero() {
 
   const word = SWAP[i] ?? SWAP[0];
 
-  const onCta = (e: React.MouseEvent) => {
-    const target = document.getElementById("connect");
-    if (!target) return;
-    const lenis = window.__lenis;
-    if (lenis) {
-      e.preventDefault();
-      lenis.scrollTo(target, { duration: 1.6, offset: -80 });
-    }
-  };
-
   return (
     <section id="hero" className="relative isolate flex flex-col px-6 pt-28 sm:pt-32">
       <div className="mx-auto flex w-full max-w-[var(--container-wrap)] flex-col items-center text-center">
@@ -104,8 +94,7 @@ export function Hero() {
           className="mt-8"
         >
           <a
-            href="#connect"
-            onClick={onCta}
+            href="/app"
             className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-7 py-3.5 text-[15px] font-medium tracking-tight text-[var(--color-cream)] shadow-[var(--shadow-pill)] transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
             style={{ border: "none" }}
           >

@@ -65,7 +65,7 @@ def main():
         page.route("**/authorize/approve", handle_approve)
         page.route("**/evmrpc-testnet.0g.ai/**", lambda r: r.abort())
 
-        page.goto(BASE + "/" + OAUTH_Q)
+        page.goto(BASE + "/app.html" + OAUTH_Q)
         page.wait_for_load_state("networkidle")
 
         # OAuth mode: lede mentions the requesting app.

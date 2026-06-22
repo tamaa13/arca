@@ -121,7 +121,7 @@ def main():
         # On-chain reads (balance / rootCount / isDelegate) → abort; the UI catches and degrades.
         page.route("**/evmrpc-testnet.0g.ai/**", lambda r: r.abort())
 
-        page.goto(BASE)
+        page.goto(BASE + "/app.html")
         page.wait_for_load_state("networkidle")
 
         # Connect → Sign (drives /session via the mock wallet) so the panel appears.

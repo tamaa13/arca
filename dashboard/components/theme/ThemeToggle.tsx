@@ -37,12 +37,10 @@ export function ThemeToggle() {
             aria-checked={isActive}
             aria-label={opt.ariaLabel}
             onClick={() => setTheme(opt.value)}
-            className={`relative z-10 inline-flex items-center justify-center rounded-full p-1.5 transition-colors duration-200 ${
-              isActive
-                ? "text-[var(--color-cream)]"
-                : "text-[var(--color-ink-2)] hover:text-[var(--color-ink)]"
-            }`}
-            style={{ background: "transparent", border: "none" }}
+            className="relative z-10 inline-flex items-center justify-center rounded-full p-1.5 transition-colors duration-200"
+            // color via inline style so it beats the global `button { color: var(--paper) }`
+            // (unlayered CSS would otherwise win over a Tailwind text-color utility).
+            style={{ background: "transparent", border: "none", color: isActive ? "var(--color-cream)" : "var(--color-ink-2)" }}
           >
             {isActive ? (
               <motion.span

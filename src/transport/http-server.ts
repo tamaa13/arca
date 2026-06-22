@@ -387,9 +387,9 @@ app.get("/authorize", rateLimit, (req, res) => {
   const nonce = mintAuthzNonce(client.client_id, q.code_challenge);
   res.setHeader("Set-Cookie", `arca_authz=${nonce}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
 
-  // Valid → hand the SPA the request (it reads the params from the URL). Static export's
-  // index.html is in DASHBOARD_DIR (the Next `out/` dir in production).
-  res.sendFile(path.join(DASHBOARD_DIR, "index.html"), (err) => {
+  // Valid → hand the APP SPA the request (it reads the params from the URL and runs the OAuth
+  // consent flow). The marketing landing is index.html; the functional app is app.html.
+  res.sendFile(path.join(DASHBOARD_DIR, "app.html"), (err) => {
     if (err) res.status(500).type("html").send("<h1>dashboard unavailable</h1>");
   });
 });

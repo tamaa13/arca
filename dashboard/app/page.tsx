@@ -1,5 +1,5 @@
-import { Dashboard } from "@/components/templates/Dashboard";
+import { Landing } from "@/components/templates/Landing";
 
 export default function Page() {
-  return <Dashboard />;
+  return <Landing />;
 }
