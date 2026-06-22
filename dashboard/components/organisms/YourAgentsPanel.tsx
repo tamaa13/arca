@@ -118,8 +118,8 @@ export function YourAgentsPanel({ arca }: { arca: ArcaApi }) {
       )}
 
       <p className="note" style={{ marginTop: 14 }}>
-        Web app (Claude.ai / ChatGPT)? Add the endpoint above as a custom connector and sign in — it appears
-        in the list below automatically, revocable like any other.
+        Using ChatGPT or Claude.ai web? Pick the <strong>ChatGPT / Web</strong> tab above for the steps — it
+        appears in the list below once connected, revocable like any other.
       </p>
 
       {/* connected agents list */}
