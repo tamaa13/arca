@@ -88,6 +88,26 @@ try {
   ok(grown.length === N + 1, `incremental: now ${N + 1} records`);
   ok(getBlobCalls === 1, `incremental recall downloaded ONLY the new root (${getBlobCalls})`);
 
+  // ── tokenized search (PR #2): whitespace/punctuation-insensitive + order-independent ──
+  await store.save("E2E-485D-SECRET special-token", { blockUpload: true });
+  ok((await store.recall("E2E secret")).some((r) => r.text.includes("E2E-485D-SECRET")), "tokenized: 'E2E secret' matches 'E2E-485D-SECRET' (the reported bug)");
+  ok((await store.recall("secret e2e")).some((r) => r.text.includes("E2E-485D-SECRET")), "tokenized: reordered 'secret e2e' still matches (order-independent)");
+  ok((await store.recall("485d-secret")).some((r) => r.text.includes("E2E-485D-SECRET")), "tokenized: punctuation in query ('485d-secret') matches");
+  ok((await store.recall("zzznope")).length === 0, "tokenized: non-existent term → no match");
+  ok((await store.recall("E2E")).length === 1, "tokenized: 'E2E' matches only the one E2E record");
+
+  // ── limit / bounding (PR #2): newest-first cap + O(limit) download on the no-query path ──
+  roots.length = 0; blobs.clear(); getBlobCalls = 0;
+  const store2 = new RemoteMemoryStore(storage, crypto, registry, "0xowner");
+  for (let i = 0; i < 64; i++) { await store2.save(`bounded entry ${i}`, { blockUpload: true }); await new Promise((r) => setTimeout(r, 1)); }
+  getBlobCalls = 0;
+  const capped = await store2.recall(); // no query → default limit 50
+  ok(capped.length === 50, `default limit caps at 50 newest (got ${capped.length})`);
+  ok(capped[0].text === "bounded entry 63", "newest entry is first");
+  ok(getBlobCalls === 50, `no-query recall downloaded ONLY the newest 50, not all 64 (${getBlobCalls})`);
+  ok((await store2.recall(undefined, 5)).length === 5, "explicit limit=5 → 5 records");
+  ok((await store2.recall(undefined, 1000)).length === 64, "limit > total → all 64");
+
   console.log(`\n${fail === 0 ? "✅ ALL PASS" : "❌ FAIL"} — ${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 } catch (e) {

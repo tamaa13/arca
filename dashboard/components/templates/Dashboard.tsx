@@ -41,10 +41,19 @@ export function Dashboard() {
           never faces a wall of greyed-out cards. */}
       <ConnectWalletStep arca={arca} />
       {arca.step1Done && <CreateSessionStep arca={arca} />}
-      {arca.step2Done && <ActivateStep arca={arca} />}
-      {isOAuth
-        ? arca.step1Done && <ApproveStep arca={arca} />
-        : arca.session?.token && <YourAgentsPanel arca={arca} />}
+      {isOAuth ? (
+        // Web consent: APPROVE is the action (server never requires funding to connect). Funding
+        // is demoted to an optional step BELOW — "fund before your first save", not to connect.
+        <>
+          {arca.step2Done && <ApproveStep arca={arca} n={3} />}
+          {arca.step2Done && <ActivateStep arca={arca} n={4} optional />}
+        </>
+      ) : (
+        <>
+          {arca.step2Done && <ActivateStep arca={arca} />}
+          {arca.session?.token && <YourAgentsPanel arca={arca} />}
+        </>
+      )}
 
       <div className="note">
         0G Galileo testnet · registry <span className="mono">{registry}</span>

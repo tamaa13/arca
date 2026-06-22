@@ -65,7 +65,7 @@ try {
   // revoke via session bearer — NO signature
   const revRes = await jpost("/connectors/revoke", { connectorId: mint.id }, bearer(sA));
   ok(revRes.ok, "revoke via bearer (no signature) → ok");
-  ok((await mcpFollow(mint.token!, iC.sid!)) === 401, "revoked token → 401 on next /mcp");
+  ok([400, 401].includes(await mcpFollow(mint.token!, iC.sid!)), "revoked token → blocked (session force-closed) on next /mcp");
   ok((await mcpInit(mint.token!)).status === 401, "revoked token → 401 on a fresh init too");
 
   // cross-wallet isolation: B's bearer cannot revoke A's connector

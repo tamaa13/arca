@@ -47,6 +47,22 @@ async function mcpInit(token: string) {
 const mcpFollow = async (token: string, sid: string) =>
   (await fetch(`${BASE}/mcp`, { method: "POST", headers: { ...mcpHdr, authorization: `Bearer ${token}`, "mcp-session-id": sid }, body: JSON.stringify(follow) })).status;
 
+// Open a server→client SSE stream (GET /mcp). Resolves true if the server CLOSES it within
+// timeoutMs (force-closed on revoke), false if it's still open at the timeout.
+function openSse(token: string, sid: string, timeoutMs: number): Promise<boolean> {
+  return (async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/mcp`, { method: "GET", headers: { accept: "text/event-stream", authorization: `Bearer ${token}`, "mcp-session-id": sid } });
+    } catch { return true; }
+    if (res.status !== 200 || !res.body) return true;
+    const reader = res.body.getReader();
+    const drained = (async () => { try { for (;;) { const { done } = await reader.read(); if (done) return true; } } catch { return true; } })();
+    const timer = new Promise<boolean>((r) => setTimeout(() => r(false), timeoutMs));
+    return Promise.race([drained, timer]);
+  })();
+}
+
 try {
   for (let i = 0; ; i++) { try { if ((await fetch(`${BASE}/health`)).ok) break; } catch {} if (i > 40) throw new Error("server not healthy"); await sleep(250); }
   console.log("✓ server healthy");
@@ -65,8 +81,15 @@ try {
   const list = (await (await fetch(`${BASE}/connectors`, { headers: { authorization: `Bearer ${A.token}` } })).json()) as { connectors?: { id: string; label: string }[] };
   ok(list.connectors?.length === 2, "GET /connectors lists both (bearer-authed)");
 
+  // Open a live SSE stream for A and B; revoke must force-close A's, leave B's open (PR #3).
+  const sseA = openSse(A.token, iA.sid!, 3000);
+  const sseB = openSse(B.token, iB.sid!, 3000);
+  await sleep(400); // let the streams establish
+
   ok((await revoke(A.id)).ok, "revoke A → ok (management sig)");
-  ok((await mcpFollow(A.token, iA.sid!)) === 401, "revoked A → 401 on next request");
+  ok((await sseA) === true, "revoked A → its OPEN SSE stream force-closed (PR #3)");
+  ok((await sseB) === false, "B's SSE stream stays open — selective force-close (PR #3)");
+  ok([400, 401].includes(await mcpFollow(A.token, iA.sid!)), "revoked A → blocked (session torn down) on next request");
   ok((await mcpFollow(B.token, iB.sid!)) === 200, "B STILL WORKS after A revoked — SELECTIVE ✓");
   ok((await mcpInit(A.token)).status === 401, "revoked A → 401 on a fresh init too");
 

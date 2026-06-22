@@ -10,15 +10,21 @@ import type { ArcaApi } from "@/hooks/useArca";
 // One step that funds the session-signer AND authorizes it as a registry delegate (two wallet
 // popups, one action). This is what lets your agents save under your wallet without it signing
 // per memory. Re-runnable: it skips whichever on-chain action is already done.
-export function ActivateStep({ arca }: { arca: ArcaApi }) {
+// `optional` (OAuth consent mode): funding isn't needed to APPROVE/connect — only before the first
+// save — so the copy/number demote it below the consent step.
+export function ActivateStep({ arca, n = 3, optional = false }: { arca: ArcaApi; n?: number; optional?: boolean }) {
   const [amount, setAmount] = useState("0.1");
   const done = arca.step3Done && arca.step4Done;
 
   return (
     <StepCard
-      n={3}
-      title="Activate your vault"
-      description="Fund a little 0G and authorize your signer — in one step. This lets any agent save under your wallet, without your wallet signing per memory."
+      n={n}
+      title={optional ? "Fund your vault" : "Activate your vault"}
+      description={
+        optional
+          ? "Optional now — you can approve and connect first. Fund (deposit + authorize) before your first save so your agents can write under your wallet."
+          : "Fund a little 0G and authorize your signer — in one step. This lets any agent save under your wallet, without your wallet signing per memory."
+      }
       on={arca.step2Done}
       done={done}
     >

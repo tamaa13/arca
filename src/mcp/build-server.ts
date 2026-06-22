@@ -69,15 +69,17 @@ export function buildArcaServer(store: MemoryStore): McpServer {
       title: "Recall memory",
       description:
         "Retrieve the user's saved memories from 0G (decrypted with the user's " +
-        "key), newest first. Pass an optional `query` to filter to memories whose " +
-        "text contains that substring.",
+        "key), newest first (default 50). Pass an optional `query` to filter — it matches " +
+        "memories containing ALL of the query's words (whitespace/punctuation-insensitive, " +
+        "order-independent), and `limit` to change how many are returned.",
       inputSchema: {
-        query: z.string().optional().describe("Optional case-insensitive substring filter."),
+        query: z.string().optional().describe("Optional filter: matches memories containing all of the query's words."),
+        limit: z.number().int().min(1).max(200).optional().describe("Max memories to return (default 50, newest first)."),
       },
     },
-    async ({ query }) => {
+    async ({ query, limit }) => {
       try {
-        const records = await store.recall(query);
+        const records = await store.recall(query, limit);
         if (records.length === 0) {
           return ok(query ? `No memories matching "${query}".` : "No memories.");
         }

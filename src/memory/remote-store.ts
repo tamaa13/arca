@@ -22,6 +22,7 @@ const dec = new TextDecoder();
 const UPLOAD_CONFIRM_MS = 8_000; // report stored vs pending; upload continues in bg
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 const RECALL_CONCURRENCY = 10; // parallel blob downloads per recall (bounds load on 0G)
+const DEFAULT_RECALL_LIMIT = 50; // newest-first cap so recall stays bounded on large vaults
 
 /** Reject after `ms` without canceling `p` (a slow upload may still finalize). */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -120,26 +121,31 @@ export class RemoteMemoryStore implements MemoryStore {
   private readonly cache = new Map<string, MemoryRecord>();
 
   /**
-   * Registry-only recall: getRoots(wallet) → getBlob → decrypt → filter → newest-first.
+   * Registry-only recall: getRoots(wallet) → getBlob → decrypt → filter → newest-first, capped.
    *
-   * Downloads run in PARALLEL (bounded) and ONLY for roots not already cached — so recall is
-   * ~O(slowest blob) instead of O(N × latency), and repeat/incremental recalls within a session
-   * are near-instant. A not-yet-finalized / foreign blob is skipped (absent from the cache) and
-   * naturally retried on the next recall. (Very large vaults still warrant server-side
-   * pagination — tracked separately; this removes the sequential-download timeout.)
+   * BOUNDED: returns at most `limit` (default 50) newest memories. The common no-query path slices
+   * the newest `limit` roots BEFORE downloading (relies on getRoots' append-only insertion order),
+   * so it's O(limit) downloads, not O(whole vault). A query must scan every root (no server-side
+   * index) but the result is still capped after the newest-first sort.
+   *
+   * PARALLEL + CACHED: downloads run bounded-concurrent and ONLY for roots not already cached, so
+   * repeat/incremental recalls within a session are near-instant. A not-yet-finalized / foreign blob
+   * is skipped (absent from the cache) and naturally retried next recall.
+   *
+   * MATCHING: `query` is tokenized (whitespace/punctuation-insensitive, order-independent) — a record
+   * matches iff every query term is a substring of some record token. So "E2E secret" matches
+   * "E2E-485D-SECRET". (Server-side pagination for truly huge vaults is still tracked separately.)
    */
-  async recall(query?: string): Promise<MemoryRecord[]> {
+  async recall(query?: string, limit = DEFAULT_RECALL_LIMIT): Promise<MemoryRecord[]> {
     const roots = await this.registry.getRoots(this.owner);
-    const unique = [...new Set(roots)]; // registry is append-only — dedup
-    const missing = unique.filter((h) => !this.cache.has(h));
+    const unique = [...new Set(roots)]; // append-only registry → dedup, INSERTION order (oldest→newest)
+
+    const candidates = query ? unique : unique.slice(-limit); // no-query: only newest `limit` need downloading
+    const missing = candidates.filter((h) => !this.cache.has(h));
 
     await mapLimited(missing, RECALL_CONCURRENCY, async (rootHash) => {
       try {
-        const ciphertext = await withTimeout(
-          this.storage.getBlob(rootHash),
-          DOWNLOAD_TIMEOUT_MS,
-          "0G storage download",
-        );
+        const ciphertext = await withTimeout(this.storage.getBlob(rootHash), DOWNLOAD_TIMEOUT_MS, "0G storage download");
         const plaintext = await this.crypto.decrypt(ciphertext, "");
         const record = JSON.parse(dec.decode(plaintext)) as MemoryRecord;
         record.rootHash = rootHash;
@@ -149,16 +155,28 @@ export class RemoteMemoryStore implements MemoryStore {
       }
     });
 
-    const needle = query?.toLowerCase();
+    const terms = query ? tokenize(query) : null;
     const records: MemoryRecord[] = [];
-    for (const rootHash of unique) {
+    for (const rootHash of candidates) {
       const record = this.cache.get(rootHash);
       if (!record) continue;
-      if (needle && !record.text.toLowerCase().includes(needle)) continue;
+      if (terms && terms.length > 0 && !matchesAllTerms(record.text, terms)) continue;
       records.push(record);
     }
-    return records.sort((a, b) => b.createdAt - a.createdAt);
+    return records.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
   }
+}
+
+/** Lowercase + split on non-alphanumeric runs → tokens. "E2E-485D-SECRET" → [e2e, 485d, secret]. */
+function tokenize(s: string): string[] {
+  return s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/** Match iff EVERY query term is a substring of SOME record token — whitespace/punctuation-
+ *  insensitive + order-independent (so "E2E secret" matches "E2E-485D-SECRET"). */
+function matchesAllTerms(text: string, terms: string[]): boolean {
+  const toks = tokenize(text);
+  return terms.every((t) => toks.some((tok) => tok.includes(t)));
 }
 
 /** Run `fn` over `items` with at most `limit` in flight. Never rejects (fn handles its own

@@ -46,8 +46,8 @@ export interface KeyManager {
 export interface MemoryStore {
   /** Encrypt -> upload to 0G -> index. Returns the record (rootHash set once anchored). */
   save(text: string): Promise<MemoryRecord>;
-  /** Read index -> fetch from 0G -> decrypt. Optional naive substring filter on `query`. */
-  recall(query?: string): Promise<MemoryRecord[]>;
+  /** Read index -> fetch from 0G -> decrypt. Tokenized `query` filter; `limit` newest-first (default 50). */
+  recall(query?: string, limit?: number): Promise<MemoryRecord[]>;
 }
 
 /** On-chain memory registry — contract in contracts/ArcaRegistry.sol, TS client in src/registry/client.ts.

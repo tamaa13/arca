@@ -7,11 +7,11 @@ import type { ArcaApi } from "@/hooks/useArca";
 // OAuth-mode replacement for the connector step (step 5): an explicit consent card.
 // Shown only when the dashboard is served at /authorize. After the user signs (step 2)
 // we have a redirect back to the requesting web client; the user clicks to approve.
-export function ApproveStep({ arca }: { arca: ArcaApi }) {
+export function ApproveStep({ arca, n = 5 }: { arca: ArcaApi; n?: number }) {
   const ready = !!arca.oauthRedirect;
   return (
     <StepCard
-      n={5}
+      n={n}
       title="Approve & connect"
       description={`Connect your Arca vault to ${arca.oauthClient ?? "this app"}. They’ll read & write your one vault, encrypted to your wallet — you can revoke on-chain anytime.`}
       on={arca.step5On}

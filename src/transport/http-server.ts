@@ -676,7 +676,7 @@ app.post("/connectors/revoke", rateLimit, (req, res) => {
   const row = revokeConnector(a.wallet, body.connectorId); // null if the connector isn't this wallet's
   if (!row) { res.status(404).json({ error: "not_found" }); return; }
   if (row.kind === "oauth" && row.family) revokeFamily(row.family); // kill the OAuth family too
-  // Also enforced on the very next /mcp request via reauthorized (per-request re-check).
+  closeDeadTransports(); // force-close any OPEN stream bound to the just-revoked connector (not just next-request)
   res.json({ ok: true });
 });
 
@@ -686,6 +686,7 @@ app.post("/connectors/revoke-all", rateLimit, (req, res) => {
   if ("status" in a) { res.status(a.status).json({ error: a.error, reason: a.reason }); return; }
   const rows = revokeAllConnectors(a.wallet);
   for (const r of rows) if (r.kind === "oauth" && r.family) revokeFamily(r.family);
+  closeDeadTransports();
   res.json({ ok: true, revoked: rows.length });
 });
 
@@ -744,6 +745,24 @@ function send401(req: Request, res: Response): void {
  *  bearer, so an absent bearer fails this equality and 401s. */
 function reauthorized(req: Request, entry: TransportEntry): boolean {
   return resolveSessionToken(req) === entry.sessionToken;
+}
+
+/** Force-close any OPEN transport whose bound token no longer resolves — i.e. it belonged to a
+ *  just-revoked connector. Called from the revoke endpoints so an already-open SSE stream dies
+ *  immediately (not only on the next request / at the 10-min idle sweep). Selective by
+ *  construction: a sibling connector of the same wallet still resolves, so its stream stays open;
+ *  only the revoked connector's entries fail the same liveness predicate reauthorized() uses. */
+function closeDeadTransports(): number {
+  let closed = 0;
+  for (const [sid, e] of Object.entries(transports)) {
+    const t = e.sessionToken;
+    const alive = boundToLiveSession(t) || !!sessionForToken(t) || t === DEV_LOCAL_TOKEN;
+    if (alive) continue;
+    delete transports[sid];
+    try { e.transport.close(); } catch { /* already closed */ }
+    closed++;
+  }
+  return closed;
 }
 
 // Idle sweep: close + delete any transport untouched for IDLE_TIMEOUT_MS (unref'd).
