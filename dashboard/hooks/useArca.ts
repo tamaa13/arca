@@ -16,7 +16,7 @@ import {
 } from "ethers";
 import { useAccount, useConnectorClient, useDisconnect, useSwitchChain } from "wagmi";
 import type { Account, Chain, Client, Transport } from "viem";
-import { APP_CHAIN } from "@/lib/chains";
+import { APP_CHAIN, zgMainnet, zgTestnet } from "@/lib/chains";
 import {
   GALILEO,
   DOMAIN,
@@ -180,11 +180,17 @@ export function useArca(): ArcaApi {
     else if (n === 4) setStep4Done(true);
   }, []);
 
+  // Read provider follows the SESSION's chain (the server decides which 0G network it serves),
+  // so reads hit mainnet RPC when the server runs mainnet and testnet otherwise.
   const getReadProvider = useCallback(() => {
-    if (!readProviderRef.current) {
-      readProviderRef.current = new JsonRpcProvider(GALILEO.params.rpcUrls[0]);
-    }
-    return readProviderRef.current;
+    const cid = sessionRef.current?.chainId;
+    const rpc = cid === zgMainnet.id ? zgMainnet.rpcUrls.default.http[0] : GALILEO.params.rpcUrls[0];
+    const cur = readProviderRef.current as (JsonRpcProvider & { _arcaRpc?: string }) | null;
+    if (cur && cur._arcaRpc === rpc) return cur;
+    const p = new JsonRpcProvider(rpc) as JsonRpcProvider & { _arcaRpc?: string };
+    p._arcaRpc = rpc;
+    readProviderRef.current = p;
+    return p;
   }, []);
 
   const saveSession = useCallback(() => {
@@ -624,15 +630,17 @@ export function useArca(): ArcaApi {
         setStatus("st3", "connect a wallet first", "err");
         return;
       }
-      // On-chain actions must run on Arca's chain. If the wallet is elsewhere (e.g. switched
-      // to mainnet), switch it and let the user re-click once the signer rebinds to the chain.
-      if (walletChainId !== undefined && walletChainId !== APP_CHAIN.id) {
+      // On-chain actions must run on the SESSION's chain (whatever 0G network the server serves).
+      // If the wallet is elsewhere, switch it and let the user re-click once the signer rebinds.
+      const target = s.chainId || APP_CHAIN.id;
+      const targetName = target === zgMainnet.id ? zgMainnet.name : zgTestnet.name;
+      if (walletChainId !== undefined && walletChainId !== target) {
         try {
-          setStatus("st3", `switching to ${APP_CHAIN.name}…`);
-          await switchChainAsync({ chainId: APP_CHAIN.id });
+          setStatus("st3", `switching to ${targetName}…`);
+          await switchChainAsync({ chainId: target });
           setStatus("st3", "switched ✓ — click Activate again to continue", "");
         } catch {
-          setStatus("st3", `please switch your wallet to ${APP_CHAIN.name}`, "err");
+          setStatus("st3", `please switch your wallet to ${targetName}`, "err");
         }
         return;
       }

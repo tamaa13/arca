@@ -15,9 +15,9 @@ import { WagmiProvider } from "wagmi";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { zgMainnet, zgTestnet } from "@/lib/chains";
 
-// WalletConnect needs a (free) Cloud projectId for the mobile/WC wallet list. Injected
-// (MetaMask/Rabby/Brave) + Coinbase work without it. Set NEXT_PUBLIC_WC_PROJECT_ID to enable WC.
-const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "arca_dev_placeholder";
+// WalletConnect Cloud projectId (public — safe to ship; it's domain-allowlisted, not a secret).
+// Enables the mobile/WC wallet list; env override wins if set.
+const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "8587a9582464416581ee66bc24063ac9";
 
 const config = getDefaultConfig({
   appName: "Arca",
