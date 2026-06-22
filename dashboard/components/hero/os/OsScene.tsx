@@ -50,7 +50,7 @@ export function OsScene() {
           <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-accent)" }} />
           arca — one memory, every agent
         </span>
-        <span className="hidden sm:inline"><ZeroG /> · testnet</span>
+        <span className="hidden sm:inline"><ZeroG /> · mainnet</span>
       </div>
 
       {/* save view: terminal beside the process panel */}

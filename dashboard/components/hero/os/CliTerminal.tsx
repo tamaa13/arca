@@ -82,7 +82,7 @@ export function CliTerminal({
           <span style={{ fontWeight: 600, color: C.fg }}>Claude Code</span>
           <span style={{ color: C.dim }}>· arca memory</span>
         </div>
-        <div style={{ color: C.dim }}>connected to arca · 0G testnet · encrypted to your wallet</div>
+        <div style={{ color: C.dim }}>connected to arca · 0G mainnet · encrypted to your wallet</div>
         <div style={{ color: C.dim }}>~/project</div>
       </div>
 
