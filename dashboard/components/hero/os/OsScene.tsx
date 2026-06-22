@@ -9,7 +9,7 @@ import { CliTerminal } from "./CliTerminal";
 import { ProcessPanel } from "./ProcessPanel";
 
 const MINIMIZE_AT = 8400; // CLI saves + the 0G pipeline finish, then minimize
-const LOOP_MS = 15000;
+const LOOP_MS = 16500;
 
 // One machine: the terminal saves to your memory while a side panel shows the
 // behind-the-scenes 0G pipeline; then both minimize and a browser recalls it.
@@ -71,16 +71,16 @@ export function OsScene() {
           animate={onCli ? { opacity: 1, scale: 1, y: 0 } : hidden}
           transition={{ duration: 0.55, ease: EASE, delay: onCli ? 0.08 : 0 }}
         >
-          <ProcessPanel play={onCli} startDelay={1800} />
+          <ProcessPanel play={onCli} variant="save" startDelay={1800} />
         </motion.div>
       </div>
 
-      {/* recall view: browser */}
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center pt-10 pb-14">
+      {/* recall view: browser beside its own recall pipeline */}
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-4 px-6 pt-10 pb-14 sm:px-8">
         <motion.div
-          className="h-[84%] w-[78%] overflow-hidden rounded-xl border bg-[#1a1a1a] shadow-[var(--shadow-doc)]"
+          className="h-[80%] w-[56%] overflow-hidden rounded-xl border bg-[#1a1a1a] shadow-[var(--shadow-doc)]"
           initial={false}
-          animate={!onCli ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.97, y: 24 }}
+          animate={!onCli ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: 24 }}
           transition={{ duration: 0.55, ease: EASE, delay: !onCli ? 0.2 : 0 }}
           style={{ borderColor: "rgba(0,0,0,0.4)" }}
         >
@@ -88,6 +88,14 @@ export function OsScene() {
           <div className="h-[calc(100%-34px)] overflow-hidden">
             <BrowserChat play={!onCli} lines={BROWSER_LINES} startDelay={450} />
           </div>
+        </motion.div>
+        <motion.div
+          className="h-[80%] w-[32%]"
+          initial={false}
+          animate={!onCli ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.96, y: 24 }}
+          transition={{ duration: 0.55, ease: EASE, delay: !onCli ? 0.32 : 0 }}
+        >
+          <ProcessPanel play={!onCli} variant="recall" startDelay={1200} />
         </motion.div>
       </div>
 

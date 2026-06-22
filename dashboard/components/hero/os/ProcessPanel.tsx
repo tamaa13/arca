@@ -3,18 +3,43 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 
-// The "behind the scenes" of one save — Arca's operator-blind, on-0G pipeline.
-// Steps light up in sequence, synced to the terminal's arca_save_memory call.
-const STEPS = [
-  { label: "sign", detail: "EIP-712 · your wallet" },
-  { label: "derive key", detail: "HKDF-SHA256 · in-memory" },
-  { label: "encrypt", detail: "AES-256-GCM" },
-  { label: "store", detail: "0G Storage · root 0x9a…f2" },
-  { label: "anchor", detail: "registry · tx 0x3b…7c" },
-];
+// The "behind the scenes" of one op — Arca's encrypt-to-wallet, on-0G pipeline.
+// Save = encrypt + store; recall = fetch + decrypt. Steps light up in sequence,
+// synced to the terminal's save / the browser's recall.
+const STEPS = {
+  save: [
+    { label: "sign", detail: "EIP-712 · your wallet" },
+    { label: "derive key", detail: "HKDF-SHA256 · in-memory" },
+    { label: "encrypt", detail: "AES-256-GCM" },
+    { label: "store", detail: "0G Storage · root 0x9a…f2" },
+    { label: "anchor", detail: "registry · tx 0x3b…7c" },
+  ],
+  recall: [
+    { label: "authorize", detail: "connector token · this agent" },
+    { label: "fetch", detail: "0G Storage · root 0x9a…f2" },
+    { label: "derive key", detail: "HKDF-SHA256 · in-memory" },
+    { label: "decrypt", detail: "AES-256-GCM" },
+    { label: "match", detail: "2 memories returned" },
+  ],
+} as const;
+
+const FOOTER = {
+  save: "stored on 0G as ciphertext — encrypted to your wallet, recoverable with your wallet alone.",
+  recall: "fetched from 0G and decrypted with your wallet-derived key.",
+};
+
 const STEP_MS = 1050;
 
-export function ProcessPanel({ play, startDelay = 0 }: { play: boolean; startDelay?: number }) {
+export function ProcessPanel({
+  play,
+  variant = "save",
+  startDelay = 0,
+}: {
+  play: boolean;
+  variant?: "save" | "recall";
+  startDelay?: number;
+}) {
+  const steps = STEPS[variant];
   const [done, setDone] = useState(0);
 
   useEffect(() => {
@@ -23,12 +48,12 @@ export function ProcessPanel({ play, startDelay = 0 }: { play: boolean; startDel
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    for (let i = 0; i < STEPS.length; i++) {
+    for (let i = 0; i < steps.length; i++) {
       const n = i + 1;
       timers.push(setTimeout(() => setDone(n), startDelay + i * STEP_MS));
     }
     return () => timers.forEach(clearTimeout);
-  }, [play, startDelay]);
+  }, [play, variant, startDelay, steps.length]);
 
   return (
     <div
@@ -37,13 +62,13 @@ export function ProcessPanel({ play, startDelay = 0 }: { play: boolean; startDel
     >
       <div className="mb-3 flex items-center gap-2 font-mono-x text-[10px] uppercase tracking-[0.1em] text-[var(--color-ink-3)]">
         <span className="h-2 w-2 rounded-[2px]" style={{ background: "var(--color-accent)" }} />
-        behind the scenes · on 0G
+        behind the scenes — {variant === "save" ? "saving" : "recalling"}
       </div>
 
       <div className="flex-1">
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const isDone = i < done;
-          const isLast = i === STEPS.length - 1;
+          const isLast = i === steps.length - 1;
           return (
             <div key={s.label} className="relative flex gap-3 pb-3 last:pb-0">
               {!isLast && (
@@ -76,7 +101,7 @@ export function ProcessPanel({ play, startDelay = 0 }: { play: boolean; startDel
       </div>
 
       <div className="mt-2 border-t border-[var(--color-border)] pt-2 font-mono-x text-[9.5px] leading-[1.45]" style={{ color: "var(--color-ink-3)" }}>
-        your key never leaves your device — the operator only ever stores ciphertext.
+        {FOOTER[variant]}
       </div>
     </div>
   );
