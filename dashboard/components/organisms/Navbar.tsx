@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/atoms/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { SoundToggle } from "@/components/sound/SoundToggle";
 
 // Arca's own navbar — a clean full-width bar that gains a hairline + frosted base
 // once you scroll. (Not anima's floating center pill; anima is reference only.)
@@ -58,6 +59,7 @@ export function Navbar() {
           >
             open app
           </Link>
+          <SoundToggle />
           <ThemeToggle />
         </div>
       </div>

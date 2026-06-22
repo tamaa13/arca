@@ -1,6 +1,7 @@
 "use client";
 
 import { Reveal } from "@/components/Reveal";
+import { ScrollTilt } from "@/components/ScrollTilt";
 
 // Honest positioning — every line scoped to what's true today (e.g. "at rest").
 const CLAIMS = [
@@ -41,20 +42,19 @@ export function Claims() {
         </p>
       </Reveal>
 
-      <Reveal delay={0.05}>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {CLAIMS.map((c) => (
-            <div
-              key={c.k}
-              className="flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-[var(--shadow-card)]"
-            >
-              <span className="font-mono-x text-[11px] text-[var(--color-accent)]">{c.k}</span>
-              <h3 className="font-display text-[21px] leading-tight text-[var(--color-ink)]">{c.t}</h3>
-              <p className="text-[13px] leading-[1.6] text-[var(--color-ink-2)]">{c.d}</p>
-            </div>
-          ))}
-        </div>
-      </Reveal>
+      <div className="mt-12 grid gap-4 sm:grid-cols-2">
+        {CLAIMS.map((c, i) => (
+          <Reveal key={c.k} delay={i * 0.05}>
+            <ScrollTilt className="h-full" intensity={9}>
+              <div className="flex h-full flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-paper)] p-6 shadow-[var(--shadow-card)]">
+                <span className="font-mono-x text-[11px] text-[var(--color-accent)]">{c.k}</span>
+                <h3 className="font-display text-[21px] leading-tight text-[var(--color-ink)]">{c.t}</h3>
+                <p className="text-[13px] leading-[1.6] text-[var(--color-ink-2)]">{c.d}</p>
+              </div>
+            </ScrollTilt>
+          </Reveal>
+        ))}
+      </div>
 
       <Reveal delay={0.1}>
         <p className="mt-6 max-w-[60ch] font-mono-x text-[11px] leading-[1.6] text-[var(--color-ink-3)]">

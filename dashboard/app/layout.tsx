@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { MotionProvider } from "@/components/MotionProvider";
 import { PaperNoise } from "@/components/PaperNoise";
+import { IntroOverlay } from "@/components/IntroOverlay";
+import { SoundProvider } from "@/components/sound/SoundProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
@@ -52,10 +54,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
-          <MotionProvider>
-            <PaperNoise />
-            {children}
-          </MotionProvider>
+          <SoundProvider>
+            <MotionProvider>
+              <PaperNoise />
+              <IntroOverlay />
+              {children}
+            </MotionProvider>
+          </SoundProvider>
         </ThemeProvider>
       </body>
     </html>
