@@ -3,22 +3,25 @@
 // different app, same user. Generic agents (no brand names); only save/recall are
 // real agent tools.
 
-export type CliLine =
-  | { kind: "sys"; text: string }
-  | { kind: "you"; text: string }
-  | { kind: "tool"; tool: string; args?: string; status: string }
-  | { kind: "reply"; text: string };
+export type CliExchange = {
+  cmd: string;
+  tool: { name: string; args: string; status: string };
+};
 
 export const CLI_AGENT = "your agent";
 
-export const CLI_LINES: CliLine[] = [
-  { kind: "sys", text: "arca memory on 0G · encrypted to your wallet" },
-  { kind: "you", text: "remember: I ship to prod on Fridays only" },
-  { kind: "tool", tool: "arca_save_memory", args: '"ships prod Fridays only"', status: "ok · 0.1 KB" },
-  { kind: "you", text: "now save my full deploy runbook — it's long" },
-  { kind: "tool", tool: "arca_save_memory", args: "runbook.md · 2.4 KB", status: "ok · encrypted → 0G" },
-  { kind: "reply", text: "Saved 2 memories — the short note + the runbook, **encrypted to your wallet** on 0G." },
+export const CLI_EXCHANGES: CliExchange[] = [
+  {
+    cmd: "remember: I ship to prod on Fridays only",
+    tool: { name: "arca_save_memory", args: '"ships prod Fridays only"', status: "ok · 0.1 KB" },
+  },
+  {
+    cmd: "now save my full deploy runbook — it's long",
+    tool: { name: "arca_save_memory", args: "runbook.md · 2.4 KB", status: "ok · encrypted → 0G" },
+  },
 ];
+
+export const CLI_REPLY = "Saved 2 memories — the short note + the runbook, encrypted to your wallet on 0G.";
 
 export type ChatTurn =
   | { role: "user"; text: string }

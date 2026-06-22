@@ -1,85 +1,166 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import type { CliLine } from "@/lib/scene";
+import { motion } from "framer-motion";
+import type { CliExchange } from "@/lib/scene";
 
-const COLOR_ARCA = "#3a8e5e";
-const COLOR_YOU = "#c2683f";
-const COLOR_SYS = "var(--color-ink-3)";
+// Claude-Code-style palette: dark navy, warm-white text, accent prompt/cursor.
+const C = {
+  bg: "#0d1117",
+  fg: "#e6e3db",
+  dim: "#6e7681",
+  green: "#6cc98f",
+  cyan: "#56b6c2",
+  magenta: "#c578dd",
+  amber: "#d6a772",
+  hair: "rgba(230,227,219,0.08)",
+  inputBg: "#0f151d",
+  inputBorder: "#222b36",
+};
 
-const dwell = (l: CliLine) =>
-  l.kind === "you" ? 1500 : l.kind === "reply" ? 1500 : l.kind === "tool" ? 750 : 700;
+const TYPE_MS = 1300;
+const THINK_MS = 850;
+const GAP_MS = 600;
 
-// Reveals a scripted terminal session line-by-line once `play` is true; `you`
-// prompts type in. Resets to empty whenever play goes false (scene looped away).
-export function CliTerminal({ play, lines, startDelay = 0 }: { play: boolean; lines: CliLine[]; startDelay?: number }) {
-  const [shown, setShown] = useState(0);
+type Item =
+  | { kind: "cmd"; text: string }
+  | { kind: "tool"; name: string; args: string; status: string }
+  | { kind: "reply"; text: string };
+
+export function CliTerminal({
+  play,
+  exchanges,
+  reply,
+  startDelay = 0,
+}: {
+  play: boolean;
+  exchanges: CliExchange[];
+  reply: string;
+  startDelay?: number;
+}) {
+  const [items, setItems] = useState<Item[]>([]);
+  const [typing, setTyping] = useState<string | null>(null);
+  const [thinking, setThinking] = useState(false);
 
   useEffect(() => {
-    if (!play) {
-      setShown(0);
-      return;
-    }
+    setItems([]);
+    setTyping(null);
+    setThinking(false);
+    if (!play) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let t = startDelay;
-    timers.push(setTimeout(() => setShown(1), t));
-    for (let i = 1; i < lines.length; i++) {
-      t += dwell(lines[i - 1]);
-      const n = i + 1;
-      timers.push(setTimeout(() => setShown(n), t));
-    }
+    exchanges.forEach((ex) => {
+      timers.push(setTimeout(() => setTyping(ex.cmd), t));
+      t += TYPE_MS;
+      timers.push(
+        setTimeout(() => {
+          setItems((p) => [...p, { kind: "cmd", text: ex.cmd }]);
+          setTyping(null);
+          setThinking(true);
+        }, t),
+      );
+      t += THINK_MS;
+      timers.push(
+        setTimeout(() => {
+          setThinking(false);
+          setItems((p) => [...p, { kind: "tool", name: ex.tool.name, args: ex.tool.args, status: ex.tool.status }]);
+        }, t),
+      );
+      t += GAP_MS;
+    });
+    timers.push(setTimeout(() => setItems((p) => [...p, { kind: "reply", text: reply }]), t));
     return () => timers.forEach(clearTimeout);
-  }, [play, lines, startDelay]);
+  }, [play, exchanges, reply, startDelay]);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-paper)] px-4 py-3 font-mono-x text-[11.5px] leading-[1.5] text-[var(--color-ink)]">
-      {lines.slice(0, shown).map((l, i) => (
-        <Line key={i} line={l} fresh={i === shown - 1} />
-      ))}
-      <div className="mt-1.5 flex items-center gap-1.5">
-        <span style={{ color: COLOR_YOU }}>{">"}</span>
-        <span aria-hidden className="inline-block bg-[var(--color-ink)]" style={{ width: 7, height: 12 }} />
+    <div className="flex h-full flex-col font-mono-x text-[11.5px] leading-[1.6]" style={{ background: C.bg, color: C.fg }}>
+      {/* header block (Claude-Code style: name / connection / cwd) */}
+      <div className="shrink-0 px-4 pt-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "var(--color-accent)" }} />
+          <span style={{ fontWeight: 600, color: C.fg }}>agent</span>
+          <span style={{ color: C.dim }}>· arca memory</span>
+        </div>
+        <div style={{ color: C.dim }}>connected to arca · 0G testnet · encrypted to your wallet</div>
+        <div style={{ color: C.dim }}>~/project</div>
+      </div>
+
+      {/* conversation */}
+      <div className="min-h-0 flex-1 overflow-hidden px-4 pt-2.5">
+        {items.map((it, i) => (
+          <Row key={i} item={it} />
+        ))}
+        {thinking && <Thinking />}
+      </div>
+
+      {/* input box */}
+      <div className="mx-3 mb-2 shrink-0 rounded-md px-3 py-2" style={{ background: C.inputBg, border: `1px solid ${C.inputBorder}` }}>
+        <span style={{ color: C.dim }}>{">"}</span> {typing ? <Typer text={typing} /> : null}
+        <BlinkCursor />
+      </div>
+
+      {/* status lines */}
+      <div className="shrink-0 px-4 pb-2 text-[10px]">
+        <div>
+          <span style={{ color: C.magenta }}>11:43</span> <span style={{ color: C.cyan }}>~/project</span>{" "}
+          <span style={{ color: C.dim }}>arca · 0xf4…cac</span>
+        </div>
+        <div>
+          <span style={{ color: C.amber }}>⏵⏵ memory: on</span> <span style={{ color: C.dim }}>· ↵ to send</span>
+        </div>
       </div>
     </div>
   );
 }
 
-function Line({ line, fresh }: { line: CliLine; fresh: boolean }) {
-  if (line.kind === "tool") {
-    const ok = line.status.startsWith("ok");
+function Row({ item }: { item: Item }) {
+  if (item.kind === "cmd") {
     return (
-      <motion.div initial={{ opacity: 0, x: -3 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="mt-1.5">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="mt-1.5">
+        <span style={{ color: C.dim }}>{">"}</span> {item.text}
+      </motion.div>
+    );
+  }
+  if (item.kind === "tool") {
+    const ok = item.status.startsWith("ok");
+    return (
+      <motion.div initial={{ opacity: 0, x: -3 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="mt-1">
         <div className="flex items-baseline gap-1.5">
-          <span>●</span>
-          <span>{line.tool}</span>
-          {line.args && <span style={{ color: "var(--color-ink-3)" }}>({line.args})</span>}
+          <span style={{ color: C.fg }}>●</span>
+          <span style={{ color: C.fg }}>{item.name}</span>
+          <span style={{ color: C.dim }}>({item.args})</span>
         </div>
-        <div className="pl-[14px]" style={{ color: "var(--color-ink-3)" }}>
-          └ <span style={{ color: ok ? COLOR_ARCA : "#c4393a" }}>{line.status}</span>
+        <div style={{ color: C.dim }}>
+          {"  ⎿  "}
+          <span style={{ color: ok ? C.green : "#d87a6a" }}>{item.status}</span>
         </div>
       </motion.div>
     );
   }
-  if (line.kind === "reply") {
-    return (
-      <motion.div initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mt-2 grid grid-cols-[48px_1fr] gap-2">
-        <span style={{ color: COLOR_ARCA, fontWeight: 500 }}>arca</span>
-        <span
-          style={{ fontFamily: "var(--font-body)" }}
-          dangerouslySetInnerHTML={{ __html: line.text.replace(/\*\*(.*?)\*\*/g, "<strong style='font-weight:600'>$1</strong>") }}
-        />
-      </motion.div>
-    );
-  }
-  const isSys = line.kind === "sys";
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} className="mt-1.5 grid grid-cols-[48px_1fr] gap-2 first:mt-0">
-      <span style={{ color: isSys ? COLOR_SYS : COLOR_YOU, fontWeight: 500 }}>{isSys ? "sys" : "you"}</span>
-      <span style={{ color: isSys ? COLOR_SYS : "var(--color-ink)" }}>
-        {line.kind === "you" && fresh ? <Typer text={line.text} /> : line.text}
-      </span>
-    </motion.div>
+    <motion.div
+      initial={{ opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="mt-2"
+      style={{ color: C.fg }}
+      dangerouslySetInnerHTML={{ __html: item.text.replace(/\*\*(.*?)\*\*/g, "<strong style='font-weight:600;color:#fff'>$1</strong>") }}
+    />
+  );
+}
+
+const STAR = ["✻", "✶", "✷", "✸", "✹", "✺"];
+
+function Thinking() {
+  const [f, setF] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setF((x) => (x + 1) % STAR.length), 120);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="mt-1.5" style={{ color: C.amber }}>
+      {STAR[f]} working… <span style={{ color: C.dim }}>(esc to interrupt)</span>
+    </div>
   );
 }
 
@@ -89,7 +170,7 @@ function Typer({ text }: { text: string }) {
     setS("");
     let raf = 0;
     const start = performance.now();
-    const dur = 900;
+    const dur = TYPE_MS - 150;
     const tick = () => {
       const p = Math.min(1, (performance.now() - start) / dur);
       setS(text.slice(0, Math.floor(p * text.length)));
@@ -100,4 +181,16 @@ function Typer({ text }: { text: string }) {
     return () => cancelAnimationFrame(raf);
   }, [text]);
   return <span>{s}</span>;
+}
+
+function BlinkCursor() {
+  return (
+    <motion.span
+      aria-hidden
+      className="ml-0.5 inline-block align-text-bottom"
+      style={{ width: 7, height: 13, background: C.green }}
+      animate={{ opacity: [1, 1, 0, 0] }}
+      transition={{ repeat: Infinity, duration: 1, times: [0, 0.5, 0.5, 1], ease: "linear" }}
+    />
+  );
 }
