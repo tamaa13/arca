@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppDashboard } from "@/components/templates/AppDashboard";
+import { Web3Provider } from "@/components/web3/Web3Provider";
 
 export const metadata: Metadata = {
   title: "Arca — app",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function AppPage() {
-  return <AppDashboard />;
+  return (
+    <Web3Provider>
+      <AppDashboard />
+    </Web3Provider>
+  );
 }

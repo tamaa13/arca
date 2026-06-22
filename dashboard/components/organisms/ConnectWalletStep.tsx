@@ -1,9 +1,8 @@
 "use client";
 
-import { Button } from "@/components/atoms/Button";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { StatusLine } from "@/components/atoms/StatusLine";
 import { StepCard } from "@/components/molecules/StepCard";
-import { AccountPanel } from "@/components/molecules/AccountPanel";
 import type { ArcaApi } from "@/hooks/useArca";
 
 export function ConnectWalletStep({ arca }: { arca: ArcaApi }) {
@@ -11,17 +10,14 @@ export function ConnectWalletStep({ arca }: { arca: ArcaApi }) {
     <StepCard
       n={1}
       title="Connect wallet"
-      description="Sign in with your own wallet (MetaMask / any injected wallet) on 0G Galileo testnet. Arca never sees your private key."
+      description="Connect any wallet — MetaMask, Rabby, Coinbase, or WalletConnect — on 0G. Pick Galileo testnet to use Arca today. Arca never sees your private key."
       on // step 1 is active by default
       done={arca.step1Done}
     >
       <div className="row">
-        <Button onClick={arca.connect}>Connect wallet</Button>
+        <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
       </div>
       <StatusLine status={arca.st1} />
-      {arca.account ? (
-        <AccountPanel account={arca.account} onDisconnect={arca.disconnect} />
-      ) : null}
     </StepCard>
   );
 }

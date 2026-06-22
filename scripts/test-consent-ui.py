@@ -61,6 +61,18 @@ def main():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.add_init_script(EIP1193)
+
+        def rk_connect():
+            page.get_by_role("button", name="Connect Wallet").first.click()
+            page.wait_for_timeout(800)
+            opt = page.get_by_test_id("rk-wallet-option-metaMask")
+            if opt.count() == 0:
+                opt = page.get_by_test_id("rk-wallet-option-injected")
+            if opt.count() == 0:
+                opt = page.get_by_text("MetaMask", exact=True)
+            opt.first.click()
+            page.wait_for_timeout(1600)
+
         page.route("**/bootstrap/pubkey", lambda r: r.fulfill(status=404, body="{}"))
         page.route("**/authorize/approve", handle_approve)
         page.route("**/evmrpc-testnet.0g.ai/**", lambda r: r.abort())
@@ -71,8 +83,8 @@ def main():
         # OAuth mode: lede mentions the requesting app.
         ok(page.get_by_text("wants to connect to your Arca memory", exact=False).count() > 0, "OAuth consent mode detected")
 
-        page.get_by_role("button", name="Connect wallet").click()
-        page.wait_for_timeout(500)
+        # wagmi auto-connects the injected mock on mount → wait for the sign step, then sign.
+        page.get_by_role("button", name="create session").wait_for(timeout=12000)
         page.get_by_role("button", name="create session").click()
         page.wait_for_timeout(900)
 

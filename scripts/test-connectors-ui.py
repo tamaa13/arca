@@ -95,6 +95,19 @@ def handle_revoke(route):
     route.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True}))
 
 
+def rk_connect(page):
+    """Drive the RainbowKit modal: open it, pick the injected wallet (mock is isMetaMask)."""
+    page.get_by_role("button", name="Connect Wallet").first.click()
+    page.wait_for_timeout(800)
+    opt = page.get_by_test_id("rk-wallet-option-metaMask")
+    if opt.count() == 0:
+        opt = page.get_by_test_id("rk-wallet-option-injected")
+    if opt.count() == 0:
+        opt = page.get_by_text("MetaMask", exact=True)
+    opt.first.click()
+    page.wait_for_timeout(1600)
+
+
 def main():
     npass, nfail = 0, 0
 
@@ -110,6 +123,8 @@ def main():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.add_init_script(EIP1193)
+        # Pre-decide cookie consent so the bottom banner never overlaps the flow.
+        page.add_init_script("localStorage.setItem('arca-consent-v1', JSON.stringify({preferences:true,analytics:false,v:1}))")
         page.on("dialog", lambda dlg: dlg.accept())  # auto-accept the revoke window.confirm
 
         # Stub the API + on-chain reads. Order: specific first.
@@ -124,10 +139,9 @@ def main():
         page.goto(BASE + "/app.html")
         page.wait_for_load_state("networkidle")
 
-        # Connect → Sign (drives /session via the mock wallet) so the panel appears.
-        page.get_by_role("button", name="Connect wallet").click()
-        page.wait_for_timeout(500)
-        # The sign button label in CreateSessionStep is "Sign & create session".
+        # wagmi auto-connects the injected mock on mount (RainbowKit/wagmi), which marks step 1
+        # and reveals the sign step. Wait for it, then sign (drives /session) so the panel appears.
+        page.get_by_role("button", name="create session").wait_for(timeout=12000)
         page.get_by_role("button", name="create session").click()
         page.wait_for_timeout(900)
 

@@ -9,11 +9,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BrowserProvider,
   JsonRpcProvider,
+  JsonRpcSigner,
   Contract,
   parseEther,
   formatEther,
-  type JsonRpcSigner,
 } from "ethers";
+import { useAccount, useConnectorClient, useDisconnect, useSwitchChain } from "wagmi";
+import type { Account, Chain, Client, Transport } from "viem";
+import { APP_CHAIN } from "@/lib/chains";
 import {
   GALILEO,
   DOMAIN,
@@ -31,6 +34,14 @@ import type { ConnectorListing } from "@/lib/connectors";
 import type { SessionData, StatusMessage, StatusKind } from "@/lib/types";
 
 const short = (a?: string) => (a ? a.slice(0, 8) + "…" + a.slice(-6) : "");
+
+// wagmi (viem) client → ethers v6 signer, so the existing ethers sign/activate paths keep
+// working with ANY connected wallet (injected, Coinbase, WalletConnect) on any chain.
+function clientToSigner(client: Client<Transport, Chain, Account>) {
+  const { account, chain, transport } = client;
+  const provider = new BrowserProvider(transport as never, { chainId: chain.id, name: chain.name });
+  return new JsonRpcSigner(provider, account.address);
+}
 
 type StatusKey = "st1" | "st2" | "st3" | "st4";
 
@@ -101,6 +112,12 @@ export function useArca(): ArcaApi {
   const [account, setAccount] = useState<string | null>(null);
   const [session, setSession] = useState<SessionData | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Wallet connection is owned by wagmi/RainbowKit now (any wallet, testnet/mainnet switch).
+  const { address: wagmiAddress, isConnected, chainId: walletChainId } = useAccount();
+  const { data: connectorClient } = useConnectorClient();
+  const { disconnectAsync } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
 
   // OAuth mode: read the params from the URL once on mount (null = normal dashboard).
   // Read OAuth params AFTER mount (in the restore effect below), NEVER during render:
@@ -370,24 +387,12 @@ export function useArca(): ArcaApi {
         // is never persisted (so the operator can't read it) → a re-sign re-derives it.
         // Don't reset to step 1: keep the wallet connected and offer a ONE-CLICK re-sign.
         // Deposit + authorization are on-chain and reflect as done after signing.
+        // The memory key lives only in RAM (never persisted, so the operator can't read it) →
+        // a re-sign re-derives it. Keep the wallet connected (wagmi restores it + the bridge
+        // effect rebuilds the signer + marks step 1) and offer a one-click re-sign; deposit +
+        // authorization are on-chain and reflect as done after signing.
         localStorage.removeItem(LS_KEY);
-        try {
-          const accts = await window.ethereum?.request<string[]>({ method: "eth_accounts" });
-          const acct = accts?.[0];
-          if (acct && window.ethereum) {
-            providerRef.current = new BrowserProvider(window.ethereum);
-            signerRef.current = await providerRef.current.getSigner();
-            accountRef.current = acct;
-            setAccount(acct);
-            markDone(1);
-            enable(2);
-            setSignEnabled(true);
-            setStatus("st1", `connected as ${short(acct)} ✓`, "ok");
-            setStatus("st2", "session expired — sign once to unlock (your deposit + authorization are preserved)", "");
-          }
-        } catch {
-          /* wallet unavailable — fall through to the fresh connect flow */
-        }
+        setStatus("st2", "session expired — sign once to unlock (your deposit + authorization are preserved)", "");
         setReady(true);
         return;
       }
@@ -412,19 +417,7 @@ export function useArca(): ArcaApi {
     setReady(true);
 
     await checkChainState(d);
-
-    // silent reconnect so a pending deposit/authorize still works
-    if (window.ethereum) {
-      try {
-        const a = await window.ethereum.request<string[]>({ method: "eth_accounts" });
-        if (a?.[0]?.toLowerCase() === accountRef.current?.toLowerCase()) {
-          providerRef.current = new BrowserProvider(window.ethereum);
-          signerRef.current = await providerRef.current.getSigner();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    // The signer is (re)built by the wagmi bridge effect once the wallet reconnects.
   }, [checkChainState, enable, markDone, setStatus]);
 
   // On load: restore a cached session. Run once. In OAuth mode we DON'T silently restore
@@ -465,6 +458,29 @@ export function useArca(): ArcaApi {
     if (!session?.token) return;
     void refreshConnectors();
   }, [session?.token, refreshConnectors]);
+
+  // Bridge wagmi → the ethers signer the rest of the hook uses. Runs whenever the connected
+  // wallet/chain changes: builds the signer, marks step 1 done, and reveals the sign step.
+  useEffect(() => {
+    if (isConnected && wagmiAddress && connectorClient) {
+      try {
+        const signer = clientToSigner(connectorClient);
+        signerRef.current = signer;
+        providerRef.current = signer.provider as BrowserProvider;
+      } catch {
+        /* ignore — signer rebuilds on the next change */
+      }
+      accountRef.current = wagmiAddress;
+      setAccount(wagmiAddress);
+      markDone(1);
+      enable(2);
+      setSignEnabled(true);
+      if (!sessionRef.current) setStatus("st1", `connected as ${short(wagmiAddress)} ✓`, "ok");
+    } else if (!isConnected) {
+      signerRef.current = null;
+      providerRef.current = null;
+    }
+  }, [isConnected, wagmiAddress, connectorClient, enable, markDone, setStatus]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {
@@ -608,6 +624,18 @@ export function useArca(): ArcaApi {
         setStatus("st3", "connect a wallet first", "err");
         return;
       }
+      // On-chain actions must run on Arca's chain. If the wallet is elsewhere (e.g. switched
+      // to mainnet), switch it and let the user re-click once the signer rebinds to the chain.
+      if (walletChainId !== undefined && walletChainId !== APP_CHAIN.id) {
+        try {
+          setStatus("st3", `switching to ${APP_CHAIN.name}…`);
+          await switchChainAsync({ chainId: APP_CHAIN.id });
+          setStatus("st3", "switched ✓ — click Activate again to continue", "");
+        } catch {
+          setStatus("st3", `please switch your wallet to ${APP_CHAIN.name}`, "err");
+        }
+        return;
+      }
       const read = getReadProvider();
       const owner = s.wallet || accountRef.current || undefined;
       setActivating(true);
@@ -645,13 +673,13 @@ export function useArca(): ArcaApi {
         setActivating(false);
       }
     },
-    [enable, markDone, setStatus, getReadProvider, refreshUsage],
+    [enable, markDone, setStatus, getReadProvider, refreshUsage, walletChainId, switchChainAsync],
   );
 
   const disconnect = useCallback(() => {
     localStorage.removeItem(LS_KEY);
-    location.reload();
-  }, []);
+    void disconnectAsync().finally(() => location.reload());
+  }, [disconnectAsync]);
 
   return {
     account,
