@@ -29,7 +29,7 @@ export function Navbar() {
             : "border border-transparent"
         }`}
       >
-        <a href="#hero" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
+        <a href="/" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
           <Logo />
           <span className="flex flex-col leading-none">
             <span style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 500, letterSpacing: "0.08em" }}>
@@ -41,8 +41,11 @@ export function Navbar() {
           </span>
         </a>
 
-        <div className="flex items-center gap-3">
-          <span className="hidden font-mono-x text-[10px] tracking-[0.08em] text-[var(--color-ink-3)] sm:inline">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <a href="/docs" className="font-mono-x text-[11px] tracking-[0.06em] text-[var(--color-ink-3)] transition-colors hover:text-[var(--color-ink)]">
+            Docs
+          </a>
+          <span className="hidden font-mono-x text-[10px] tracking-[0.08em] text-[var(--color-ink-3)] md:inline">
             0G Galileo · testnet
           </span>
           <ThemeToggle />

@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { MotionProvider } from "@/components/MotionProvider";
 import { PaperNoise } from "@/components/PaperNoise";
@@ -16,8 +15,15 @@ const animal = localFont({
   display: "swap",
   variable: "--font-animal",
 });
-const geist = Geist({ subsets: ["latin"], display: "swap", variable: "--font-geist" });
-const geistMono = Geist_Mono({ subsets: ["latin"], display: "swap", variable: "--font-geist-mono" });
+// BP Mono (free, attribution backpacker.gr) — every other bit of text (body + code).
+const bpmono = localFont({
+  src: [
+    { path: "../public/fonts/bpmono/BPmono.ttf", weight: "400", style: "normal" },
+    { path: "../public/fonts/bpmono/BPmonoBold.ttf", weight: "700", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--font-bpmono",
+});
 
 export const metadata: Metadata = {
   title: "Arca — your memory",
@@ -38,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${animal.variable} ${geist.variable} ${geistMono.variable}`}
+      className={`${animal.variable} ${bpmono.variable}`}
       suppressHydrationWarning
     >
       <head>

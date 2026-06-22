@@ -3,6 +3,7 @@
 import { useArca } from "@/hooks/useArca";
 import { Navbar } from "@/components/organisms/Navbar";
 import { Hero } from "@/components/hero/Hero";
+import { Claims } from "@/components/landing/Claims";
 import { Reveal } from "@/components/Reveal";
 import { ConnectWalletStep } from "@/components/organisms/ConnectWalletStep";
 import { CreateSessionStep } from "@/components/organisms/CreateSessionStep";
@@ -20,6 +21,7 @@ export function Dashboard() {
     <>
       <Navbar />
       {!isOAuth && <Hero />}
+      {!isOAuth && <Claims />}
 
       {/* Functional column. The hero CTA scrolls here. */}
       <div className="wrap" id="connect" style={isOAuth ? { paddingTop: 96 } : undefined}>

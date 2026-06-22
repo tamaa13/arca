@@ -266,7 +266,8 @@ function malformedSig(sig: unknown): boolean {
 }
 
 // Dashboard (connect wallet · sign · deposit · setDelegate · connector) at `/`.
-app.use(express.static(DASHBOARD_DIR));
+// `extensions: ["html"]` maps clean routes to the static export's files (e.g. /docs → docs.html).
+app.use(express.static(DASHBOARD_DIR, { extensions: ["html"] }));
 
 // Liveness — unauthenticated.
 app.get("/health", (_req, res) => {

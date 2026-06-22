@@ -25,9 +25,10 @@
   --rgb-cream: 249 248 246;
   --rgb-ink: 14 13 10;
 
+  /* Only two fonts site-wide: Animal (display) + BP Mono (everything else). */
   --font-display: var(--font-animal), "Helvetica Neue", system-ui, sans-serif;
-  --font-body: var(--font-geist), "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-body: var(--font-bpmono), ui-monospace, monospace;
+  --font-mono: var(--font-bpmono), ui-monospace, monospace;
 
   --container-narrow: 720px;
   --container-wrap: 1140px;
@@ -48,7 +49,7 @@
     --color-cream-warm: #1f1c14;
     --color-ink: #efece3;
     --color-ink-2: #a8a59e;
-    --color-ink-3: #6f6c65;
+    --color-ink-3: #928d82;
     --color-border: rgba(239, 236, 227, 0.1);
     --color-border-strong: rgba(239, 236, 227, 0.22);
     --color-accent: #93a7d6;
@@ -69,7 +70,7 @@ html.dark {
   --color-cream-warm: #1f1c14;
   --color-ink: #efece3;
   --color-ink-2: #a8a59e;
-  --color-ink-3: #6f6c65;
+  --color-ink-3: #928d82;
   --color-border: rgba(239, 236, 227, 0.1);
   --color-border-strong: rgba(239, 236, 227, 0.22);
   --color-accent: #93a7d6;
@@ -117,7 +118,14 @@ html.dark {
   }
   body {
     margin: 0;
-    background: var(--color-cream);
+    /* Anima-style page wash: soft brand glows in the corners over the base,
+       fixed so they sit still as you scroll. Theme-aware via the tokens. */
+    background:
+      radial-gradient(58rem 58rem at 6% -12%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 60%),
+      radial-gradient(50rem 50rem at 106% 22%, color-mix(in oklab, #c2683f 13%, transparent), transparent 60%),
+      radial-gradient(46rem 46rem at 24% 112%, color-mix(in oklab, #3a8e5e 11%, transparent), transparent 58%),
+      var(--color-cream);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--sans);
     line-height: 1.5;
