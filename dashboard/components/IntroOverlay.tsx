@@ -139,46 +139,60 @@ function Choose({
         user-owned memory · on 0G
       </p>
 
-      {/* compact, centered pill — not a full-width box */}
-      <button
-        onClick={() => setSoundChoice(!soundChoice)}
-        aria-pressed={soundChoice}
-        className="inline-flex items-center gap-3 px-4 py-2 transition-colors"
-        style={{ ...pill, border: "1px solid var(--color-border-strong)", background: "transparent", color: "var(--color-ink)" }}
+      {/* One consent card: sound row → note → decline / accept side by side. */}
+      <div
+        className="w-full max-w-[384px] p-5 text-left sm:p-6"
+        style={{
+          borderRadius: 18,
+          border: "1px solid var(--color-border)",
+          background: "color-mix(in oklab, var(--color-paper) 80%, transparent)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          boxShadow: "var(--shadow-card)",
+        }}
       >
-        <span className="font-mono-x text-[11px] uppercase tracking-[0.12em]">ambient sound</span>
-        <span
-          className="relative inline-flex h-[18px] w-8 items-center transition-colors duration-200"
-          style={{ borderRadius: 9999, background: soundChoice ? "var(--color-accent)" : "var(--color-border-strong)" }}
-        >
-          <span
-            className="absolute h-3.5 w-3.5 bg-white transition-transform duration-200"
-            style={{ borderRadius: 9999, transform: soundChoice ? "translateX(15px)" : "translateX(2px)" }}
-          />
-        </span>
-      </button>
+        <div className="flex items-center justify-between">
+          <span className="font-mono-x text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--color-ink-2)" }}>
+            ambient sound
+          </span>
+          <button
+            onClick={() => setSoundChoice(!soundChoice)}
+            aria-pressed={soundChoice}
+            aria-label="Toggle ambient sound"
+            className="relative inline-flex h-[20px] w-9 items-center transition-colors duration-200"
+            style={{ borderRadius: 9999, border: "none", background: soundChoice ? "var(--color-accent)" : "var(--color-border-strong)" }}
+          >
+            <span
+              className="absolute h-4 w-4 bg-white transition-transform duration-200"
+              style={{ borderRadius: 9999, transform: soundChoice ? "translateX(17px)" : "translateX(3px)" }}
+            />
+          </button>
+        </div>
 
-      <div className="mt-1 flex flex-col items-center gap-3.5">
-        <button
-          onClick={() => onEnter(true)}
-          className="px-8 py-3 font-mono-x text-[12.5px] transition-opacity duration-200 hover:opacity-90"
-          style={{ ...pill, background: "var(--color-ink)", color: "var(--color-cream)", border: "none" }}
-        >
-          accept cookies &amp; enter
-        </button>
-        <button
-          onClick={() => onEnter(false)}
-          className="font-mono-x text-[11px] transition-opacity duration-200 hover:opacity-70"
-          style={{ ...pill, background: "transparent", border: "none", color: "var(--color-ink-3)" }}
-        >
-          decline cookies &amp; enter
-        </button>
+        <div className="my-4 h-px w-full" style={{ background: "var(--color-border)" }} />
+
+        <p className="font-mono-x text-[10.5px] leading-[1.7]" style={{ color: "var(--color-ink-3)" }}>
+          We use a couple of cookies for your wallet session. Ambient sound is optional — toggle it anytime
+          from the navbar.
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <button
+            onClick={() => onEnter(false)}
+            className="py-2.5 font-mono-x text-[12px] transition-opacity duration-200 hover:opacity-75"
+            style={{ ...pill, background: "transparent", border: "1px solid var(--color-border-strong)", color: "var(--color-ink-2)" }}
+          >
+            decline
+          </button>
+          <button
+            onClick={() => onEnter(true)}
+            className="whitespace-nowrap py-2.5 font-mono-x text-[12px] transition-opacity duration-200 hover:opacity-90"
+            style={{ ...pill, background: "var(--color-ink)", color: "var(--color-cream)", border: "1px solid var(--color-ink)" }}
+          >
+            accept &amp; enter
+          </button>
+        </div>
       </div>
-
-      <p className="mt-1 max-w-[40ch] font-mono-x text-[10px] leading-[1.7]" style={{ color: "var(--color-ink-3)" }}>
-        We use a couple of cookies for your wallet session. Ambient sound is optional — toggle it anytime
-        from the navbar.
-      </p>
     </motion.div>
   );
 }
