@@ -31,6 +31,32 @@ export function IntroOverlay() {
     return () => clearTimeout(t);
   }, []);
 
+  const loading = phase === "loading";
+  const visible = phase === "loading" || phase === "choose";
+
+  // Lock the page while the intro is up — the landing renders behind this fixed overlay,
+  // so without this the hidden page (and Lenis smooth-scroll) would scroll under it.
+  useEffect(() => {
+    if (typeof document === "undefined" || !visible) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    // Lenis is created by MotionProvider (a parent → its effect runs after this one),
+    // so stop it now and again next frame once it exists.
+    const stop = () => window.__lenis?.stop();
+    stop();
+    const raf = requestAnimationFrame(stop);
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+      cancelAnimationFrame(raf);
+      window.__lenis?.start();
+    };
+  }, [visible]);
+
   const enter = (cookies: boolean) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("arca-entered", "1");
@@ -39,9 +65,6 @@ export function IntroOverlay() {
     setSoundOn(soundChoice); // this click is the user gesture that lets audio start
     setPhase("done");
   };
-
-  const loading = phase === "loading";
-  const visible = phase === "loading" || phase === "choose";
 
   return (
     <AnimatePresence>
