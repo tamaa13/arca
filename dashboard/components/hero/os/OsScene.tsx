@@ -6,13 +6,13 @@ import { EASE } from "@/lib/motion";
 import { BROWSER_HOST, BROWSER_LINES, CLI_AGENT, CLI_EXCHANGES, CLI_REPLY } from "@/lib/scene";
 import { BrowserChat } from "./BrowserChat";
 import { CliTerminal } from "./CliTerminal";
+import { ProcessPanel } from "./ProcessPanel";
 
-const MINIMIZE_AT = 7800; // CLI finishes both saves + reply, then minimizes
-const LOOP_MS = 14000;
+const MINIMIZE_AT = 8400; // CLI saves + the 0G pipeline finish, then minimize
+const LOOP_MS = 15000;
 
-// One machine, two apps: the CLI saves to your memory, then minimizes and a
-// browser agent recalls the same memory. A self-scheduling phase loop drives
-// the window choreography; the players reset via their `play` prop.
+// One machine: the terminal saves to your memory while a side panel shows the
+// behind-the-scenes 0G pipeline; then both minimize and a browser recalls it.
 export function OsScene() {
   const [phase, setPhase] = useState<"cli" | "browser">("cli");
 
@@ -34,16 +34,16 @@ export function OsScene() {
   }, []);
 
   const onCli = phase === "cli";
+  const hidden = { opacity: 0, scale: 0.9, y: 26 };
 
   return (
-    <div
-      className="relative mx-auto aspect-[16/10] w-full max-w-[960px] overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[var(--shadow-doc)]"
-      style={{ background: "linear-gradient(160deg, var(--color-cream-warm), var(--color-cream-deep))" }}
-    >
+    <div className="relative mx-auto aspect-[16/10] w-full max-w-[980px] overflow-hidden rounded-[18px] border border-[var(--color-border)] shadow-[var(--shadow-doc)]">
+      <Wallpaper />
+
       {/* menubar */}
       <div
         className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-4 py-1.5 font-mono-x text-[10px] tracking-[0.06em] text-[var(--color-ink-3)] backdrop-blur-sm"
-        style={{ background: "rgb(var(--rgb-cream) / 0.5)" }}
+        style={{ background: "rgb(var(--rgb-cream) / 0.45)" }}
       >
         <span className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-accent)" }} />
@@ -52,14 +52,13 @@ export function OsScene() {
         <span className="hidden sm:inline">0G · testnet</span>
       </div>
 
-      {/* desktop */}
-      <div className="absolute inset-0 flex items-center justify-center px-6 pt-9 pb-14 sm:px-8">
-        {/* CLI window */}
+      {/* save view: terminal beside the process panel */}
+      <div className="absolute inset-0 z-10 flex items-center justify-center gap-4 px-6 pt-10 pb-14 sm:px-8">
         <motion.div
-          className="absolute h-[74%] w-[70%] overflow-hidden rounded-xl border bg-[#16130d] shadow-[var(--shadow-card)]"
-          animate={onCli ? { scale: 1, opacity: 1, x: 0, y: 0 } : { scale: 0.16, opacity: 0, x: -210, y: 150 }}
-          transition={{ duration: 0.6, ease: EASE }}
-          style={{ zIndex: onCli ? 20 : 10, borderColor: "rgba(0,0,0,0.4)" }}
+          className="h-[78%] w-[52%] overflow-hidden rounded-xl border bg-[#0d1117] shadow-[var(--shadow-card)]"
+          animate={onCli ? { opacity: 1, scale: 1, y: 0 } : hidden}
+          transition={{ duration: 0.55, ease: EASE }}
+          style={{ borderColor: "rgba(0,0,0,0.4)" }}
         >
           <WindowBar title={`${CLI_AGENT} — zsh`} kind="terminal" dark />
           <div className="h-[calc(100%-34px)] overflow-hidden">
@@ -67,13 +66,23 @@ export function OsScene() {
           </div>
         </motion.div>
 
-        {/* Browser window */}
         <motion.div
-          className="absolute h-[82%] w-[76%] overflow-hidden rounded-xl border bg-[#1a1a1a] shadow-[var(--shadow-card)]"
+          className="h-[78%] w-[34%]"
+          animate={onCli ? { opacity: 1, scale: 1, y: 0 } : hidden}
+          transition={{ duration: 0.55, ease: EASE, delay: onCli ? 0.08 : 0 }}
+        >
+          <ProcessPanel play={onCli} startDelay={1800} />
+        </motion.div>
+      </div>
+
+      {/* recall view: browser */}
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center pt-10 pb-14">
+        <motion.div
+          className="h-[84%] w-[78%] overflow-hidden rounded-xl border bg-[#1a1a1a] shadow-[var(--shadow-doc)]"
           initial={false}
-          animate={!onCli ? { scale: 1, opacity: 1, y: 0 } : { scale: 0.96, opacity: 0, y: 28 }}
+          animate={!onCli ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.97, y: 24 }}
           transition={{ duration: 0.55, ease: EASE, delay: !onCli ? 0.2 : 0 }}
-          style={{ zIndex: !onCli ? 20 : 5, borderColor: "rgba(0,0,0,0.4)" }}
+          style={{ borderColor: "rgba(0,0,0,0.4)" }}
         >
           <WindowBar title={BROWSER_HOST} kind="browser" dark />
           <div className="h-[calc(100%-34px)] overflow-hidden">
@@ -86,7 +95,7 @@ export function OsScene() {
       <div className="absolute inset-x-0 bottom-2 z-30 flex justify-center">
         <div
           className="flex items-center gap-2 rounded-2xl border border-[var(--color-border)] px-2.5 py-1.5 backdrop-blur-md"
-          style={{ background: "rgb(var(--rgb-cream) / 0.6)" }}
+          style={{ background: "rgb(var(--rgb-cream) / 0.55)" }}
         >
           <DockIcon active={onCli} kind="terminal" />
           <DockIcon active={!onCli} kind="browser" />
@@ -96,11 +105,33 @@ export function OsScene() {
   );
 }
 
+function Wallpaper() {
+  return (
+    <div
+      className="absolute inset-0 z-0"
+      style={{ background: "linear-gradient(155deg, var(--color-cream-warm), var(--color-cream-deep))" }}
+    >
+      {/* blueprint dot grid (theme-aware via --color-border) */}
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          backgroundImage: "radial-gradient(circle, var(--color-border) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        }}
+      />
+      {/* soft color orbs for depth */}
+      <div className="absolute -left-16 -top-16 h-56 w-56 rounded-full opacity-40 blur-3xl" style={{ background: "var(--color-accent)" }} />
+      <div className="absolute -bottom-20 -right-10 h-64 w-64 rounded-full opacity-30 blur-3xl" style={{ background: "#c2683f" }} />
+      <div className="absolute left-1/3 top-1/2 h-40 w-40 rounded-full opacity-20 blur-3xl" style={{ background: "#3a8e5e" }} />
+    </div>
+  );
+}
+
 function WindowBar({ title, kind, dark = false }: { title: string; kind: "terminal" | "browser"; dark?: boolean }) {
   const barBg = dark ? "#1d1a13" : "color-mix(in oklab, var(--color-ink) 3%, transparent)";
-  const barBorder = dark ? "rgba(233,228,215,0.08)" : "var(--color-border)";
+  const barBorder = dark ? "rgba(233,228,219,0.08)" : "var(--color-border)";
   const titleColor = dark ? "#8b8578" : "var(--color-ink-3)";
-  const dotBorder = dark ? "rgba(233,228,215,0.22)" : "var(--color-border-strong)";
+  const dotBorder = dark ? "rgba(233,228,219,0.22)" : "var(--color-border-strong)";
   return (
     <div className="flex h-[34px] items-center gap-2 border-b px-3" style={{ background: barBg, borderColor: barBorder }}>
       <span className="flex gap-1.5">

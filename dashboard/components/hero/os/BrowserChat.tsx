@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { ChatTurn } from "@/lib/scene";
+import { OpenAILogo } from "./logos";
 
 // ChatGPT-style palette.
 const M = {
@@ -64,7 +65,7 @@ export function BrowserChat({ play, lines, startDelay = 0 }: { play: boolean; li
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between px-4 py-2.5 text-[12px]" style={{ borderBottom: `1px solid ${M.hair}` }}>
           <span>
-            agent <span style={{ color: M.dim }}>⌄</span>
+            ChatGPT <span style={{ color: M.dim }}>⌄</span>
           </span>
           <span className="rounded-full px-2.5 py-0.5 text-[11px]" style={{ border: `1px solid ${M.hair}`, color: M.fg }}>
             Upgrade
@@ -135,11 +136,7 @@ function Nav({ icon, label, active = false }: { icon: React.ReactNode; label: st
 }
 
 function Mark() {
-  return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ background: M.fg }}>
-      <span className="block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: M.main }} />
-    </span>
-  );
+  return <OpenAILogo size={18} color={M.fg} />;
 }
 
 function Icon({ path }: { path: string }) {

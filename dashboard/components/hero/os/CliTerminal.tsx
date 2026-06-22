@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { CliExchange } from "@/lib/scene";
+import { ClaudeLogo } from "./logos";
 
 // Claude-Code-style palette: dark navy, warm-white text, accent prompt/cursor.
 const C = {
@@ -77,8 +78,8 @@ export function CliTerminal({
       {/* header block (Claude-Code style: name / connection / cwd) */}
       <div className="shrink-0 px-4 pt-3">
         <div className="flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "var(--color-accent)" }} />
-          <span style={{ fontWeight: 600, color: C.fg }}>agent</span>
+          <ClaudeLogo size={15} />
+          <span style={{ fontWeight: 600, color: C.fg }}>Claude Code</span>
           <span style={{ color: C.dim }}>· arca memory</span>
         </div>
         <div style={{ color: C.dim }}>connected to arca · 0G testnet · encrypted to your wallet</div>

@@ -8,7 +8,7 @@ export type CliExchange = {
   tool: { name: string; args: string; status: string };
 };
 
-export const CLI_AGENT = "your agent";
+export const CLI_AGENT = "claude";
 
 export const CLI_EXCHANGES: CliExchange[] = [
   {
@@ -28,7 +28,7 @@ export type ChatTurn =
   | { role: "tool"; text: string }
   | { role: "assistant"; text: string };
 
-export const BROWSER_HOST = "your-agent.app";
+export const BROWSER_HOST = "chatgpt.com";
 
 export const BROWSER_LINES: ChatTurn[] = [
   { role: "user", text: "what's my full deploy process?" },
