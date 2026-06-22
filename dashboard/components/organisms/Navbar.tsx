@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Logo } from "@/components/atoms/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { SoundToggle } from "@/components/sound/SoundToggle";
 
@@ -29,8 +28,11 @@ export function Navbar() {
       style={{ background: scrolled ? "rgb(var(--rgb-cream) / 0.78)" : "transparent" }}
     >
       <div className="mx-auto flex h-14 w-full max-w-[var(--container-wrap)] items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5" style={{ color: "var(--color-ink)" }}>
-          <Logo />
+        <Link
+          href="/"
+          className="flex items-center transition-opacity duration-200 hover:opacity-55"
+          style={{ color: "var(--color-ink)" }}
+        >
           <span style={{ fontFamily: "var(--font-body)", fontSize: 17, fontWeight: 600, letterSpacing: "0.16em" }}>
             ARCA
           </span>

@@ -2,12 +2,11 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Logo } from "@/components/atoms/Logo";
 import { useSound } from "@/components/sound/SoundProvider";
 import { EASE } from "@/lib/motion";
 
-// First-visit intro: a brief loader → a panel to accept/decline cookies and opt into
-// ambient sound, then it fades away (once per browser). Skipped for OAuth consent.
+// First-visit intro: ARCA zooms in from full-screen → a panel to accept/decline cookies and
+// opt into ambient sound, then it fades away (once per browser). Skipped for OAuth consent.
 export function IntroOverlay() {
   const { setSoundOn } = useSound();
   const [phase, setPhase] = useState<"init" | "loading" | "choose" | "done">("init");
@@ -24,7 +23,7 @@ export function IntroOverlay() {
       return;
     }
     setPhase("loading");
-    const t = setTimeout(() => setPhase("choose"), 1700);
+    const t = setTimeout(() => setPhase("choose"), 2100);
     return () => clearTimeout(t);
   }, []);
 
@@ -46,14 +45,24 @@ export function IntroOverlay() {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: EASE }}
-          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
-          style={{ background: "var(--color-cream)" }}
+          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-6"
+          // Same pastel palette as the landing (over the aurora image) so it never looks mismatched.
+          style={{
+            backgroundColor: "var(--color-cream)",
+            backgroundImage: "url(/images/aurora.svg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
         >
-          {phase === "loading" ? (
-            <Loader />
-          ) : (
-            <Choose soundChoice={soundChoice} setSoundChoice={setSoundChoice} onEnter={enter} />
-          )}
+          {/* gentle scrim so text stays readable over the aurora in either theme */}
+          <div className="pointer-events-none absolute inset-0" style={{ background: "rgb(var(--rgb-cream) / 0.32)" }} />
+          <div className="relative">
+            {phase === "loading" ? (
+              <Loader />
+            ) : (
+              <Choose soundChoice={soundChoice} setSoundChoice={setSoundChoice} onEnter={enter} />
+            )}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -62,29 +71,43 @@ export function IntroOverlay() {
 
 function Loader() {
   return (
-    <div className="flex flex-col items-center gap-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, ease: EASE }}
-        className="flex items-center gap-3"
-        style={{ color: "var(--color-ink)" }}
+    <div className="flex flex-col items-center gap-9">
+      {/* ARCA fills the screen, then settles to its resting size */}
+      <motion.span
+        initial={{ scale: 2.7, opacity: 0, letterSpacing: "0.5em" }}
+        animate={{ scale: 1, opacity: 1, letterSpacing: "0.2em" }}
+        transition={{ duration: 1.25, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          fontFamily: "var(--font-body)",
+          fontWeight: 600,
+          fontSize: "clamp(46px, 13vw, 104px)",
+          lineHeight: 1,
+          color: "var(--color-ink)",
+          transformOrigin: "center",
+        }}
       >
-        <Logo />
-        <span style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 26, letterSpacing: "0.16em" }}>ARCA</span>
+        ARCA
+      </motion.span>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7, duration: 0.6, ease: EASE }}
+        className="flex flex-col items-center gap-4"
+      >
+        <div className="h-px w-52 overflow-hidden" style={{ background: "var(--color-border)" }}>
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: "0%" }}
+            transition={{ delay: 0.7, duration: 1.3, ease: [0.4, 0, 0.2, 1] }}
+            className="h-full w-full"
+            style={{ background: "var(--color-ink)" }}
+          />
+        </div>
+        <span className="font-mono-x text-[10px] uppercase tracking-[0.26em]" style={{ color: "var(--color-ink-3)" }}>
+          user-owned memory · on 0G
+        </span>
       </motion.div>
-      <div className="h-px w-48 overflow-hidden" style={{ background: "var(--color-border)" }}>
-        <motion.div
-          initial={{ x: "-100%" }}
-          animate={{ x: "0%" }}
-          transition={{ duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-          className="h-full w-full"
-          style={{ background: "var(--color-ink)" }}
-        />
-      </div>
-      <span className="font-mono-x text-[10px] uppercase tracking-[0.2em]" style={{ color: "var(--color-ink-3)" }}>
-        loading
-      </span>
     </div>
   );
 }
@@ -103,12 +126,13 @@ function Choose({
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE }}
-      className="flex w-full max-w-[420px] flex-col items-center gap-7 text-center"
+      className="flex w-full max-w-[440px] flex-col items-center gap-7 text-center"
     >
-      <div className="flex items-center gap-3" style={{ color: "var(--color-ink)" }}>
-        <Logo />
-        <span style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 28, letterSpacing: "0.16em" }}>ARCA</span>
-      </div>
+      <span
+        style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 30, letterSpacing: "0.18em", color: "var(--color-ink)" }}
+      >
+        ARCA
+      </span>
       <p className="font-mono-x text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--color-ink-3)" }}>
         user-owned memory · on 0G
       </p>

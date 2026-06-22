@@ -35,7 +35,7 @@ export function SoundToggle() {
     <button
       onClick={toggle}
       aria-label={soundOn ? "Mute ambient sound" : "Play ambient sound"}
-      className="inline-flex h-8 w-8 items-center justify-center"
+      className="inline-flex h-8 w-8 items-center justify-center transition-opacity duration-200 hover:opacity-65"
       style={{ padding: 0, background: "transparent", border: "none", color: soundOn ? "var(--color-ink)" : "var(--color-ink-3)" }}
     >
       <span className="flex items-end gap-[2.5px]" style={{ height: 13 }}>
