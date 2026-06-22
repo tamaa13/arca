@@ -75,6 +75,7 @@ def main():
 
         page.route("**/bootstrap/pubkey", lambda r: r.fulfill(status=404, body="{}"))
         page.route("**/authorize/approve", handle_approve)
+        page.route("**/health", lambda r: r.fulfill(status=200, content_type="application/json", body='{"ok":true,"chainId":16602,"registry":"0xc196C28886c93462f55A78134b5bF6118A3f5860"}'))
         page.route("**/evmrpc-testnet.0g.ai/**", lambda r: r.abort())
 
         page.goto(BASE + "/app.html" + OAUTH_Q)

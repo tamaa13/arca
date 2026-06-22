@@ -12,7 +12,7 @@ services:
     container_name: arca
     restart: unless-stopped
     env_file:
-      - ./testnet.env          # public 0G testnet config (no secrets)
+      - ./mainnet.env          # public 0G MAINNET config (Aristotle 16661 — real 0G storage cost)
     environment:
       - ARCA_PORT=8080
       - ARCA_HOST=0.0.0.0      # container-internal only; not published to host

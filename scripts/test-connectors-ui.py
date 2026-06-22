@@ -134,6 +134,7 @@ def main():
         page.route("**/connectors", handle_connectors_list)
         page.route("**/session", handle_session)
         # On-chain reads (balance / rootCount / isDelegate) → abort; the UI catches and degrades.
+        page.route("**/health", lambda r: r.fulfill(status=200, content_type="application/json", body='{"ok":true,"chainId":16602,"registry":"0xc196C28886c93462f55A78134b5bF6118A3f5860"}'))
         page.route("**/evmrpc-testnet.0g.ai/**", lambda r: r.abort())
 
         page.goto(BASE + "/app.html")
