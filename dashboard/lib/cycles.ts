@@ -1,44 +1,34 @@
-// The hero terminal's looping story — Arca's pitch in three acts:
-// (1) one agent saves a memory → encrypted to your wallet on 0G,
-// (2) a DIFFERENT agent recalls it → one vault, every agent,
-// (3) you revoke one agent → the rest keep working.
+// The hero compares TWO flows side by side to prove one vault, any platform:
+//   LEFT  — a CLI agent SAVES a memory  → encrypted to your wallet on 0G.
+//   RIGHT — a different agent on the WEB recalls that SAME memory.
+// Only save/recall are real MCP tools agents call. Revoke is a DASHBOARD action
+// (session-bearer / wallet sig), not an agent tool — so it's not shown here.
 export type ToolStreamEntry = { tool: string; args?: string; status: string };
 export type Cycle = {
   id: string;
-  agent: string; // the calling agent shown in the `you`-style label
+  agent: string; // shown in the prompt label
   agentColor: string;
   prompt: string;
   toolStream: ToolStreamEntry[];
   reply: string;
 };
 
-export const CYCLES: Cycle[] = [
-  {
-    id: "save",
-    agent: "claude",
-    agentColor: "#c2683f",
-    prompt: "remember: I ship to prod on Fridays only",
-    toolStream: [
-      { tool: "save_memory", args: '"ships prod Fridays only"', status: "ok" },
-      { tool: "anchor.0g", args: "encrypted → 0xf4…cac", status: "ok" },
-    ],
-    reply:
-      "Saved. Encrypted to **your wallet** and stored on 0G — no operator can read it, and every agent you connect shares it.",
-  },
-  {
-    id: "recall",
-    agent: "opencode",
-    agentColor: "#2f8f7a",
-    prompt: "what days do I deploy?",
-    toolStream: [{ tool: "recall_memory", args: '"deploy days"', status: "ok" }],
-    reply: "You ship to prod on **Fridays only** — saved earlier from Claude. One vault, every agent.",
-  },
-  {
-    id: "revoke",
-    agent: "you",
-    agentColor: "#2a78a8",
-    prompt: "/revoke codex-laptop",
-    toolStream: [{ tool: "revoke_connector", args: '"codex-laptop"', status: "ok" }],
-    reply: "Codex is cut off instantly. Claude and opencode still work — **revoke one, keep the rest.**",
-  },
-];
+export const SAVE_CYCLE: Cycle = {
+  id: "save",
+  agent: "opencode",
+  agentColor: "#c2683f",
+  prompt: "remember: I ship to prod on Fridays only",
+  toolStream: [
+    { tool: "arca_save_memory", args: '"ships prod Fridays only"', status: "ok · encrypted → 0xf4…cac on 0G" },
+  ],
+  reply: "Saved to **your vault** — encrypted to your wallet, stored on 0G. No operator can read it.",
+};
+
+export const RECALL_CYCLE: Cycle = {
+  id: "recall",
+  agent: "chatgpt",
+  agentColor: "#2a78a8",
+  prompt: "what days do I deploy?",
+  toolStream: [{ tool: "arca_recall_memory", args: '"deploy days"', status: "ok · 1 match" }],
+  reply: "You ship to prod on **Fridays only** — saved earlier from your CLI. Same vault, any agent.",
+};

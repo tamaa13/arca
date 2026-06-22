@@ -17,17 +17,20 @@ const COLOR_ARCA = "#3a8e5e";
 
 // Adapted from anima's hero TUI: a from-scratch monospace terminal driven by a
 // small stage machine (typing → tools stream → reply), themed to Arca.
-export function TuiCanvas({ cycle }: { cycle: Cycle }) {
+export function TuiCanvas({ cycle, startDelayMs = 0 }: { cycle: Cycle; startDelayMs?: number }) {
   const [stage, setStage] = useState<Stage>("idle");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    // startDelayMs lets the RIGHT (recall) pane wait until the LEFT (save) pane
+    // has finished, so the comparison reads "saved here → recalled there".
+    const d = startDelayMs;
     setStage("idle");
-    const tTyping = setTimeout(() => setStage("typing"), IDLE_MS);
-    const tCommitted = setTimeout(() => setStage("committed"), IDLE_MS + TYPING_MS);
-    const tTools = setTimeout(() => setStage("tools"), IDLE_MS + TYPING_MS + COMMIT_MS);
+    const tTyping = setTimeout(() => setStage("typing"), d + IDLE_MS);
+    const tCommitted = setTimeout(() => setStage("committed"), d + IDLE_MS + TYPING_MS);
+    const tTools = setTimeout(() => setStage("tools"), d + IDLE_MS + TYPING_MS + COMMIT_MS);
     const replyAt =
-      IDLE_MS + TYPING_MS + COMMIT_MS + cycle.toolStream.length * TOOL_STAGGER_MS + REPLY_DELAY_MS;
+      d + IDLE_MS + TYPING_MS + COMMIT_MS + cycle.toolStream.length * TOOL_STAGGER_MS + REPLY_DELAY_MS;
     const tReply = setTimeout(() => setStage("reply"), replyAt);
     return () => {
       clearTimeout(tTyping);
@@ -35,7 +38,7 @@ export function TuiCanvas({ cycle }: { cycle: Cycle }) {
       clearTimeout(tTools);
       clearTimeout(tReply);
     };
-  }, [cycle.id, cycle.toolStream.length]);
+  }, [cycle.id, cycle.toolStream.length, startDelayMs]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -48,7 +51,7 @@ export function TuiCanvas({ cycle }: { cycle: Cycle }) {
   const showThinking = stage === "committed" || stage === "tools";
 
   return (
-    <div className="flex h-full min-h-[372px] flex-col font-mono-x text-[12px] leading-[1.55] text-[var(--color-ink)]">
+    <div className="flex h-full min-h-[300px] flex-col font-mono-x text-[12px] leading-[1.55] text-[var(--color-ink)]">
       <div
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -129,7 +132,7 @@ function Row({ label, labelColor, children }: { label: string; labelColor: strin
 }
 
 function ToolBlock({ entry, delaySec }: { entry: ToolStreamEntry; delaySec: number }) {
-  const ok = entry.status === "ok";
+  const ok = entry.status.startsWith("ok");
   return (
     <motion.div initial={{ opacity: 0, x: -3 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.22, delay: delaySec }} className="mt-1.5 first:mt-0">
       <div className="flex items-baseline gap-1.5">
